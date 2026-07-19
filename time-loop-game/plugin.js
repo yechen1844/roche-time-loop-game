@@ -792,7 +792,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     navigate(route, data) {
       this.route = route;
       this.routeData = data || null;
-      this.render();
+      UI.render();
     },
 
     setMode(mode) {
@@ -1299,6 +1299,8 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       topbar.appendChild(el("div", { class: "tlg-title" }, title));
       topbar.appendChild(el("button", { class: "tlg-icon-btn", onclick: () => App.navigate("settings") },
         el("span", { innerHTML: svgIcon("settings", 20) })));
+      topbar.appendChild(el("button", { class: "tlg-icon-btn", onclick: () => { try { window.Roche.ui.closeApp(); } catch(e){} } },
+        el("span", { innerHTML: svgIcon("close", 20) })));
 
       content.appendChild(contentInner);
 
