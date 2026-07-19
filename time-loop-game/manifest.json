@@ -1,0 +1,19 @@
+{
+  "id": "time-loop-game",
+  "name": "时间循环文游",
+  "version": "1.0.0",
+  "description": "时间循环主题文字冒险游戏：土拨鼠之日 / 忌日快乐 / 明日边缘三种命运。三段式 API、四张表、线索卡片系统。",
+  "author": "Roche User",
+  "entry": "https://raw.githubusercontent.com/yechen1844/roche-time-loop-game/main/time-loop-game/plugin.js",
+  "hash": "",
+  "permissions": [
+    "persona:read",
+    "character:read",
+    "memory:read",
+    "memory:write",
+    "worldbook:read",
+    "ai:chat",
+    "storage",
+    "ui"
+  ]
+}
