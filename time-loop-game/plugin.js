@@ -317,6 +317,7 @@ ${(usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "
 
 现在请输出本回合剧本种子：`,
         },
+        { role: "user", content: "请开始。" },
       ];
     },
 
@@ -343,6 +344,7 @@ ${userAction}
 
 请输出 JSON 数组：`,
         },
+        { role: "user", content: "请开始。" },
       ];
     },
 
@@ -417,6 +419,7 @@ ${(injects.usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\
 3. 选项三内容
 4. 选项四内容`,
     },
+    { role: "user", content: "请开始。" },
   ];
 },
 
@@ -455,6 +458,7 @@ ${modelOutput}
 
 请输出 JSON：`,
         },
+        { role: "user", content: "请开始。" },
       ];
     },
 
@@ -504,6 +508,7 @@ ${modelOutput}
 
 请输出 JSON：`,
         },
+        { role: "user", content: "请开始。" },
       ];
     },
 
@@ -530,6 +535,7 @@ ${(charCrossLoopMemories || []).map(c => "### " + (c.name || c.handle) + "\n" + 
 
 请输出结局叙事：`,
         },
+        { role: "user", content: "请开始。" },
       ];
     },
 
@@ -563,6 +569,7 @@ ${worldview || "（无）"}
 
 请输出基础世界设定：`,
         },
+        { role: "user", content: "请开始。" },
       ];
     },
 
@@ -590,6 +597,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
 
 请输出基础剧本种子：`,
         },
+        { role: "user", content: "请开始。" },
       ];
     },
   };
