@@ -407,10 +407,18 @@ ${injects.userAction || "（无）"}
 【user 本回合使用的线索】
 ${(injects.usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "（无）"}
 
-请输出剧情：`,
-        },
-      ];
+请输出剧情。
+
+【输出结尾要求】
+在正文结尾，另起一行，用 \`【选项】\` 标记开头，然后给出 3-4 个不同方向的选项，每个选项一行，格式如：
+【选项】
+1. 选项一内容
+2. 选项二内容
+3. 选项三内容
+4. 选项四内容`,
     },
+  ];
+},
 
     // 副 API 2-判定：主 API 输出后立即调用，只判死亡 + 判破局（事实性判断）
     sub2Judge(modelOutput, state, mode, location, time, characters) {
@@ -759,6 +767,59 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
   .${ROOT_CLASS} .tlg-tab.active { border-bottom-color: #5a90c0; }
   .${ROOT_CLASS} .tlg-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 12px 0; }
   .${ROOT_CLASS} .tlg-empty { text-align: center; padding: 40px 20px; opacity: 0.4; font-size: 14px; }
+
+  /* === 滑块 === */
+  .${ROOT_CLASS} .tlg-range { width: 100%; accent-color: #5a90c0; }
+
+  /* === 悬浮球 + 菜单 + 小窗 === */
+  .${ROOT_CLASS} .tlg-fab {
+    position: fixed; right: 20px; bottom: calc(20px + var(--tlg-safe-bottom, 0px));
+    width: 52px; height: 52px; border-radius: 50%;
+    background: #5a90c0; color: #fff;
+    border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .${ROOT_CLASS}.mode-groundhog .tlg-fab { background: #ff9f43; }
+  .${ROOT_CLASS}.mode-happy-death .tlg-fab { background: #8b0000; }
+  .${ROOT_CLASS}.mode-edge-tomorrow .tlg-fab { background: #2a6090; }
+  .${ROOT_CLASS} .tlg-fab-menu {
+    position: fixed; right: 20px; bottom: calc(80px + var(--tlg-safe-bottom, 0px));
+    background: rgba(20,20,24,0.98); border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4); padding: 8px; z-index: 101;
+    display: flex; flex-direction: column; gap: 4px; min-width: 140px;
+    color: #e8e8e8;
+  }
+  .${ROOT_CLASS} .tlg-fab-menu button {
+    background: transparent; border: none; padding: 8px 12px; text-align: left;
+    cursor: pointer; border-radius: 8px; color: inherit; font-size: 14px;
+  }
+  .${ROOT_CLASS} .tlg-fab-menu button:hover { background: rgba(255,255,255,0.1); }
+  .${ROOT_CLASS} .tlg-fab-panel {
+    position: fixed; right: 20px; bottom: calc(80px + var(--tlg-safe-bottom, 0px));
+    width: min(420px, calc(100vw - 40px)); max-height: 60vh;
+    background: rgba(20,20,24,0.98); color: #e8e8e8;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5); z-index: 102;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .${ROOT_CLASS} .tlg-fab-panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: 600;
+  }
+  .${ROOT_CLASS} .tlg-fab-panel-body { padding: 12px 16px; overflow-y: auto; flex: 1; }
+  .${ROOT_CLASS} .tlg-fab-panel-body .tlg-card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* === 主 API 选项按钮 === */
+  .${ROOT_CLASS} .tlg-option-btn {
+    display: block; width: 100%; text-align: left;
+    padding: 10px 14px; margin-bottom: 6px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
+    cursor: pointer; color: inherit; font-size: 14px; transition: background 0.15s;
+  }
+  .${ROOT_CLASS} .tlg-option-btn:hover { background: rgba(255,255,255,0.1); }
+  .${ROOT_CLASS} .tlg-option-btn.used { opacity: 0.5; }
   `;
 
   // ============================================================
@@ -773,6 +834,9 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     state: null, // 当前存档状态
     settings: null,
     listeners: [],
+    routeStack: [], // 路由栈，用于 settings/logs 等覆盖层返回
+    fabOpen: false, // 悬浮球菜单是否展开
+    fabPanel: null, // 当前打开的悬浮小窗类型
 
     on(event, fn) {
       this.listeners.push({ event, fn });
@@ -790,9 +854,28 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     },
 
     navigate(route, data) {
+      if (route === "settings" || route === "logs") {
+        if (!this.routeStack) this.routeStack = [];
+        this.routeStack.push({ route: this.route, data: this.routeData });
+      } else {
+        this.routeStack = [];
+      }
       this.route = route;
       this.routeData = data || null;
       UI.render();
+    },
+
+    goBack() {
+      if (this.routeStack && this.routeStack.length > 0) {
+        const prev = this.routeStack.pop();
+        this.route = prev.route;
+        this.routeData = prev.data;
+        UI.render();
+      } else {
+        this.route = "home";
+        this.routeData = null;
+        UI.render();
+      }
     },
 
     setMode(mode) {
@@ -1293,7 +1376,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       }
 
       if (showBack) {
-        topbar.appendChild(el("button", { class: "tlg-icon-btn", onclick: () => App.navigate("home") },
+        topbar.appendChild(el("button", { class: "tlg-icon-btn", onclick: () => App.goBack() },
           el("span", { innerHTML: svgIcon("back", 20) })));
       }
       topbar.appendChild(el("div", { class: "tlg-title" }, title));
@@ -1327,6 +1410,11 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       if (statusBar) root.appendChild(statusBar);
       if (sidebarOverlay) root.appendChild(sidebarOverlay);
       if (sidebar) root.appendChild(sidebar);
+
+      // 悬浮球（有存档时显示）
+      if (App.state) {
+        root.appendChild(this.renderFab());
+      }
     },
 
     renderHome() {
@@ -1613,10 +1701,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       wrap.appendChild(usedCluesArea);
 
       // 输入区
-      const inputArea = el("div", { class: "tlg-row" },
-        el("input", { class: "tlg-input", id: "tlg-action-input", placeholder: "输入你的行动..." })
-      );
-      const sendBtn = el("button", { class: "tlg-btn" }, "行动");
+      const inputArea = el("div", null);
+      const actionInput = el("textarea", { class: "tlg-input", id: "tlg-action-input", placeholder: "输入你的行动...", style: "min-height:60px;resize:vertical;font-family:inherit;" });
+      inputArea.appendChild(actionInput);
+      const sendBtn = el("button", { class: "tlg-btn tlg-mt-8", style: "width:100%;" }, "行动");
       inputArea.appendChild(sendBtn);
       wrap.appendChild(inputArea);
 
@@ -1637,11 +1725,21 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         storyArea.innerHTML = "";
         storyArea.appendChild(document.createTextNode(parts.body));
         optionsArea.replaceChildren();
-        if (parts.options && parts.options.length) {
-          parts.options.forEach(opt => {
-            const btn = el("button", { class: "tlg-option", onclick: () => {
+        // 解析 【选项】 部分
+        const options = this.parseOptions(modelOutput);
+        if (options && options.length) {
+          options.forEach(opt => {
+            const btn = el("button", { class: "tlg-option-btn", onclick: () => {
               const inp = document.getElementById("tlg-action-input");
-              if (inp) inp.value = opt;
+              if (inp) {
+                const cur = inp.value;
+                if (cur && cur.trim()) {
+                  inp.value = cur.replace(/\s+$/, "") + "\n" + opt;
+                } else {
+                  inp.value = opt;
+                }
+              }
+              btn.classList.add("used");
             } }, opt);
             optionsArea.appendChild(btn);
           });
@@ -1778,6 +1876,14 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
 
     parseModelOutput(text) {
       const parts = { body: text, options: [] };
+      if (!text) return parts;
+      // 优先识别 【选项】 标记
+      const optIdx = text.indexOf("【选项】");
+      if (optIdx >= 0) {
+        parts.body = text.slice(0, optIdx).trim();
+        return parts;
+      }
+      // 兼容 --- 分隔
       const m = text.split(/---\n?/);
       if (m.length > 1) {
         parts.body = m[0].trim();
@@ -1791,6 +1897,22 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         parts.options = opts;
       }
       return parts;
+    },
+
+    // 解析主 API 输出中的【选项】部分，返回选项数组
+    parseOptions(text) {
+      if (!text) return [];
+      const idx = text.indexOf("【选项】");
+      if (idx < 0) return [];
+      const optText = text.slice(idx + "【选项】".length);
+      const lines = optText.split("\n").map(l => l.trim()).filter(Boolean);
+      const opts = [];
+      for (const line of lines) {
+        const om = line.match(/^\d+[.、)]\s*(.+)/);
+        if (om && om[1]) opts.push(om[1]);
+        else opts.push(line);
+      }
+      return opts;
     },
 
     showCluePicker() {
@@ -1850,6 +1972,183 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       usedClues.forEach(c => {
         area.appendChild(el("div", { class: "tlg-tag tlg-tag-" + c.type }, c.summary || c.text || ""));
       });
+    },
+
+    // 悬浮球 + 菜单 + 悬浮小窗
+    renderFab() {
+      const wrap = el("div", null);
+      // 悬浮球按钮
+      const fab = el("button", { class: "tlg-fab", onclick: () => {
+        App.fabOpen = !App.fabOpen;
+        UI.render();
+      } }, el("span", { innerHTML: svgIcon("menu", 24) }));
+      wrap.appendChild(fab);
+
+      // 菜单（仅当 fabOpen 且没有打开小窗时）
+      if (App.fabOpen && !App.fabPanel) {
+        const menu = el("div", { class: "tlg-fab-menu" });
+        const items = [
+          { key: "logs", label: "系统日志" },
+          { key: "memory", label: "记忆表" },
+          { key: "location", label: "地点表" },
+          { key: "time", label: "时间表" },
+          { key: "character", label: "人物表" },
+          { key: "death", label: "死亡记录" },
+          { key: "clue", label: "线索表" },
+          { key: "rewind", label: "回溯记录" },
+        ];
+        items.forEach(item => {
+          menu.appendChild(el("button", { onclick: () => {
+            App.fabPanel = item.key;
+            App.fabOpen = false;
+            UI.render();
+          } }, item.label));
+        });
+        wrap.appendChild(menu);
+      }
+
+      // 悬浮小窗
+      if (App.fabPanel) {
+        wrap.appendChild(this.renderFabPanel(App.fabPanel));
+      }
+      return wrap;
+    },
+
+    renderFabPanel(type) {
+      const state = App.state;
+      const titles = {
+        logs: "系统日志",
+        memory: "记忆表",
+        location: "地点表",
+        time: "时间表",
+        character: "人物表",
+        death: "死亡记录",
+        clue: "线索表",
+        rewind: "回溯记录",
+      };
+      const panel = el("div", { class: "tlg-fab-panel" },
+        el("div", { class: "tlg-fab-panel-head" },
+          el("div", null, titles[type] || "面板"),
+          el("button", { class: "tlg-icon-btn", onclick: () => {
+            App.fabPanel = null;
+            UI.render();
+          } }, el("span", { innerHTML: svgIcon("close", 20) }))
+        ),
+        el("div", { class: "tlg-fab-panel-body" })
+      );
+      const body = panel.querySelector(".tlg-fab-panel-body");
+
+      if (!state) {
+        body.appendChild(el("div", { class: "tlg-empty" }, "无存档"));
+        return panel;
+      }
+
+      if (type === "logs") {
+        body.appendChild(el("div", { class: "tlg-empty" }, "加载中..."));
+        Logger.getAll().then(logs => {
+          body.replaceChildren();
+          if (!logs || !logs.length) {
+            body.appendChild(el("div", { class: "tlg-empty" }, "暂无日志"));
+            return;
+          }
+          logs.slice(0, 50).forEach(log => {
+            body.appendChild(el("div", { class: "tlg-card" },
+              el("div", { class: "tlg-row", style: "justify-content:space-between;" },
+                el("span", { class: "tlg-tag" }, log.role === "main" ? "主" : log.role === "sub1" ? "副1" : "副2"),
+                el("span", { class: "tlg-faded" }, new Date(log.ts).toLocaleString() + (log.loopNumber ? " L" + log.loopNumber : "") + (log.turnNumber ? " T" + log.turnNumber : ""))
+              ),
+              el("div", { class: "tlg-faded tlg-mt-8", style: "font-size:12px;white-space:pre-wrap;max-height:150px;overflow-y:auto;" }, log.reply || "")
+            ));
+          });
+        });
+      } else if (type === "memory") {
+        if (!state.memoryTable || !state.memoryTable.length) {
+          body.appendChild(el("div", { class: "tlg-empty" }, "暂无数据"));
+        } else {
+          state.memoryTable.forEach(m => {
+            body.appendChild(el("div", { class: "tlg-card" },
+              el("div", { class: "tlg-faded tlg-mb-8" }, (m.time || "") + " · " + (m.location || "")),
+              el("div", null, m.summary || ""),
+              m.characters && m.characters.length ? el("div", { class: "tlg-faded tlg-mt-8" }, "涉及：" + m.characters.join("、")) : null
+            ));
+          });
+        }
+      } else if (type === "location") {
+        if (!state.locationTable || !state.locationTable.length) {
+          body.appendChild(el("div", { class: "tlg-empty" }, "暂无数据"));
+        } else {
+          state.locationTable.forEach(loc => {
+            body.appendChild(el("div", { class: "tlg-card" },
+              el("div", { style: "font-weight:600;" }, loc.name || "未命名"),
+              loc.description ? el("div", { class: "tlg-faded tlg-mt-8" }, loc.description) : null,
+              loc.crossLoopMemory ? el("div", { class: "tlg-mt-8" }, loc.crossLoopMemory) : null
+            ));
+          });
+        }
+      } else if (type === "time") {
+        if (!state.timeTable) {
+          body.appendChild(el("div", { class: "tlg-empty" }, "暂无数据"));
+        } else {
+          body.appendChild(el("div", { class: "tlg-card" },
+            el("div", { style: "font-weight:600;" }, "当前时间"),
+            el("div", { class: "tlg-mt-8" }, state.timeTable.currentTime || "（未指定）")
+          ));
+        }
+      } else if (type === "character") {
+        if (!state.characterTable || !Object.keys(state.characterTable).length) {
+          body.appendChild(el("div", { class: "tlg-empty" }, "暂无数据"));
+        } else {
+          for (const id in state.characterTable) {
+            const c = state.characterTable[id];
+            body.appendChild(el("div", { class: "tlg-card" },
+              el("div", { class: "tlg-row", style: "justify-content:space-between;" },
+                el("div", { style: "font-weight:600;" }, c.name || c.handle || "未命名"),
+                el("span", { class: "tlg-tag" + (c.present ? "" : " tlg-faded") }, c.present ? "在场" : "退场")
+              ),
+              c.loopInteraction ? el("div", { class: "tlg-faded tlg-mt-8" }, "本次循环：" + c.loopInteraction) : null,
+              c.crossLoopObservation ? el("div", { class: "tlg-faded tlg-mt-8" }, "跨循环：" + c.crossLoopObservation) : null
+            ));
+          }
+        }
+      } else if (type === "death") {
+        if (!state.deathTable || !state.deathTable.length) {
+          body.appendChild(el("div", { class: "tlg-empty" }, "暂无数据"));
+        } else {
+          state.deathTable.forEach(d => {
+            body.appendChild(el("div", { class: "tlg-card" },
+              el("div", { class: "tlg-faded tlg-mb-8" }, "第" + d.loopNumber + "次循环 · 第" + d.turnNumber + "回合" + (d.ts ? " · " + new Date(d.ts).toLocaleString() : "")),
+              el("div", { style: "font-weight:600;" }, d.cause || "未知死因"),
+              el("div", { class: "tlg-faded tlg-mt-8" }, d.details || "")
+            ));
+          });
+        }
+      } else if (type === "clue") {
+        if (!state.clueTable || !state.clueTable.length) {
+          body.appendChild(el("div", { class: "tlg-empty" }, "暂无数据"));
+        } else {
+          state.clueTable.forEach(clue => {
+            body.appendChild(el("div", { class: "tlg-card" },
+              el("div", { class: "tlg-row", style: "justify-content:space-between;" },
+                el("span", { class: "tlg-tag tlg-tag-" + (clue.type || "event") }, clue.type === "stable" ? "稳定" : clue.type === "death" ? "死因" : clue.type === "location" ? "地点" : "事件"),
+                el("span", { class: "tlg-faded" }, "第" + (clue.fromLoop || "?") + "次循环")
+              ),
+              el("div", { class: "tlg-mt-8" }, clue.summary || clue.text || "")
+            ));
+          });
+        }
+      } else if (type === "rewind") {
+        if (!state.rewindTable || !state.rewindTable.length) {
+          body.appendChild(el("div", { class: "tlg-empty" }, "暂无数据"));
+        } else {
+          state.rewindTable.forEach(r => {
+            body.appendChild(el("div", { class: "tlg-card" },
+              el("div", { class: "tlg-faded tlg-mb-8" }, "第" + r.loopNumber + "次循环结束" + (r.ts ? " · " + new Date(r.ts).toLocaleString() : "")),
+              el("div", null, r.reason || "")
+            ));
+          });
+        }
+      }
+      return panel;
     },
 
     renderSidebar() {
@@ -2024,21 +2323,36 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         el("button", { class: "tlg-btn-ghost tlg-mt-8", onclick: () => App.navigate("logs") }, "查看日志")
       ));
 
-      // 安全区域
-      wrap.appendChild(el("div", { class: "tlg-card" },
-        el("div", { class: "tlg-label" }, "顶栏安全区域（px）"),
-        el("input", { class: "tlg-input", type: "number", value: s.safeTop || 0, oninput: async (e) => {
-          s.safeTop = parseInt(e.target.value) || 0;
-          App.applySafeArea();
-          await App.saveSettings();
-        } }),
-        el("div", { class: "tlg-label tlg-mt-16" }, "底栏安全区域（px）"),
-        el("input", { class: "tlg-input", type: "number", value: s.safeBottom || 0, oninput: async (e) => {
-          s.safeBottom = parseInt(e.target.value) || 0;
-          App.applySafeArea();
-          await App.saveSettings();
-        } })
-      ));
+      // 安全区域（滑块）
+      const safeCard = el("div", { class: "tlg-card" });
+      safeCard.appendChild(el("div", { class: "tlg-label" }, "顶栏安全区域"));
+      const topRow = el("div", { style: "display:flex;align-items:center;gap:10px;" });
+      const topRange = el("input", { class: "tlg-range", type: "range", min: "0", max: "100", step: "1", value: String(s.safeTop || 0) });
+      const topSpan = el("span", { style: "min-width:50px;text-align:right;" }, (s.safeTop || 0) + "px");
+      topRange.addEventListener("input", async (e) => {
+        s.safeTop = parseInt(e.target.value) || 0;
+        topSpan.textContent = s.safeTop + "px";
+        App.applySafeArea();
+        await App.saveSettings();
+      });
+      topRow.appendChild(topRange);
+      topRow.appendChild(topSpan);
+      safeCard.appendChild(topRow);
+
+      safeCard.appendChild(el("div", { class: "tlg-label tlg-mt-16" }, "底栏安全区域"));
+      const botRow = el("div", { style: "display:flex;align-items:center;gap:10px;" });
+      const botRange = el("input", { class: "tlg-range", type: "range", min: "0", max: "100", step: "1", value: String(s.safeBottom || 0) });
+      const botSpan = el("span", { style: "min-width:50px;text-align:right;" }, (s.safeBottom || 0) + "px");
+      botRange.addEventListener("input", async (e) => {
+        s.safeBottom = parseInt(e.target.value) || 0;
+        botSpan.textContent = s.safeBottom + "px";
+        App.applySafeArea();
+        await App.saveSettings();
+      });
+      botRow.appendChild(botRange);
+      botRow.appendChild(botSpan);
+      safeCard.appendChild(botRow);
+      wrap.appendChild(safeCard);
 
       // API 配置
       wrap.appendChild(el("div", { class: "tlg-card" },
@@ -2060,10 +2374,69 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           )
         );
         if (!cfg.useRoche) {
-          card.appendChild(el("div", { class: "tlg-label tlg-mt-8" }, "Provider"));
-          card.appendChild(el("input", { class: "tlg-input", value: cfg.provider || "", oninput: (e) => { cfg.provider = e.target.value; } }));
-          card.appendChild(el("div", { class: "tlg-label tlg-mt-8" }, "Model"));
-          card.appendChild(el("input", { class: "tlg-input", value: cfg.model || "", oninput: (e) => { cfg.model = e.target.value; } }));
+          card.appendChild(el("div", { class: "tlg-label tlg-mt-8" }, "API 链接（OpenAI 兼容）"));
+          card.appendChild(el("input", { class: "tlg-input", value: cfg.endpoint || "", placeholder: "https://api.openai.com/v1", oninput: (e) => { cfg.endpoint = e.target.value; } }));
+          card.appendChild(el("div", { class: "tlg-label tlg-mt-8" }, "API Key"));
+          card.appendChild(el("input", { class: "tlg-input", type: "password", value: cfg.apiKey || "", placeholder: "sk-...", oninput: (e) => { cfg.apiKey = e.target.value; } }));
+
+          // 模型选择 + 刷新按钮
+          const modelCol = el("div", { style: "flex:1;" });
+          modelCol.appendChild(el("div", { class: "tlg-label" }, "模型"));
+          const modelSelect = el("select", { class: "tlg-input", id: "tlg-model-select-" + role });
+          if (cfg.model) {
+            modelSelect.appendChild(el("option", { value: cfg.model }, cfg.model));
+          } else {
+            modelSelect.appendChild(el("option", { value: "" }, "请选择或刷新模型列表"));
+          }
+          modelSelect.addEventListener("change", (e) => { cfg.model = e.target.value; });
+          modelCol.appendChild(modelSelect);
+
+          const refreshBtn = el("button", { class: "tlg-btn-ghost", style: "white-space:nowrap;align-self:flex-end;" }, "刷新模型列表");
+          refreshBtn.addEventListener("click", async () => {
+            const endpoint = (cfg.endpoint || "").trim().replace(/\/+$/, "");
+            const apiKey = (cfg.apiKey || "").trim();
+            if (!endpoint || !apiKey) {
+              window.Roche.ui.toast("请先填写链接和 Key");
+              return;
+            }
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = "获取中...";
+            try {
+              const res = await fetch(endpoint + "/models", {
+                headers: { "Authorization": "Bearer " + apiKey }
+              });
+              if (!res.ok) {
+                throw new Error("HTTP " + res.status);
+              }
+              const json = await res.json();
+              const data = (json && json.data) || [];
+              const models = data.map(m => m.id).filter(Boolean).sort();
+              // 清空 select
+              modelSelect.replaceChildren();
+              // 如果当前 cfg.model 不在列表里，把它作为第一个 option 加进去
+              if (cfg.model && !models.includes(cfg.model)) {
+                modelSelect.appendChild(el("option", { value: cfg.model }, cfg.model));
+              }
+              models.forEach(m => {
+                modelSelect.appendChild(el("option", { value: m }, m));
+              });
+              // 选中当前 cfg.model
+              if (cfg.model) {
+                modelSelect.value = cfg.model;
+              }
+              window.Roche.ui.toast("已获取 " + models.length + " 个模型");
+            } catch (e) {
+              window.Roche.ui.toast("获取失败：" + (e.message || "未知错误"));
+            } finally {
+              refreshBtn.disabled = false;
+              refreshBtn.textContent = "刷新模型列表";
+            }
+          });
+
+          const modelRow = el("div", { class: "tlg-row tlg-mt-8", style: "align-items:flex-end;gap:8px;" }, modelCol);
+          modelRow.appendChild(refreshBtn);
+          card.appendChild(modelRow);
+
           card.appendChild(el("div", { class: "tlg-label tlg-mt-8" }, "Temperature"));
           card.appendChild(el("input", { class: "tlg-input", type: "number", step: "0.1", value: cfg.temperature, oninput: (e) => { cfg.temperature = parseFloat(e.target.value) || 0; } }));
           card.appendChild(el("button", { class: "tlg-btn-ghost tlg-mt-8", onclick: async () => { await App.saveSettings(); window.Roche.ui.toast("已保存"); } }, "保存"));
