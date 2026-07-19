@@ -1256,10 +1256,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
   const UI = {
     render() {
       const { route } = App;
-      App.container.replaceChildren();
-      App.container.innerHTML = "";
-
       const root = App.root;
+      if (!root) return;
+      root.replaceChildren();
+
       // 顶栏
       const topbar = el("div", { class: "tlg-topbar" });
       // 内容
@@ -1679,7 +1679,15 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
             rerollBtn.style.display = "none";
             lastTurnInput = null;
             App.state = state;
-            this.render();
+            // 死亡剧情已在 storyArea 显示，追加"回溯到循环开始"按钮，点击后刷新界面
+            storyArea.appendChild(el("div", { class: "tlg-divider" }));
+            storyArea.appendChild(el("button", {
+              class: "tlg-btn tlg-mt-16",
+              onclick: () => {
+                App.state = state;
+                UI.render();
+              }
+            }, "回溯到循环开始"));
             return;
           }
           // 破局：runTurn 内部已处理总结，这里只生成结局
@@ -1727,7 +1735,15 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
             rerollBtn.style.display = "none";
             lastTurnInput = null;
             App.state = state;
-            this.render();
+            // 死亡剧情已在 storyArea 显示，追加"回溯到循环开始"按钮，点击后刷新界面
+            storyArea.appendChild(el("div", { class: "tlg-divider" }));
+            storyArea.appendChild(el("button", {
+              class: "tlg-btn tlg-mt-16",
+              onclick: () => {
+                App.state = state;
+                UI.render();
+              }
+            }, "回溯到循环开始"));
             return;
           }
           if (result.broke) {
