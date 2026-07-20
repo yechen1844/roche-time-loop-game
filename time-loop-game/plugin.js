@@ -439,6 +439,22 @@ ${personRule}
 6. 破局判定：当达成破局条件时 loopEndMet=true。
 7. 选项必须有意义、有分支感，不要敷衍，给出 3-4 个不同方向的选项。
 8. 若 user 行动会触发即兴线索（如 char 透露秘密），自然写入正文。
+9. 语言规则：如果角色的设定是非中文母语（如英语、日语、法语等），该角色说话时必须用其母语，随后在括号内给出中文翻译。
+   - 示例：英裔角色说话：「Good morning, detective.」（早上好，侦探。）
+   - 示例：日裔角色说话：「おはよう、探偵さん。」（早上好，侦探先生。）
+   - 角色的内心活动、动作描写仍用中文
+   - user 的语言不受此规则影响
+10. 【文笔要求（极高优先级）】
+   - 避免 AI 味和八股文：不要用"仿佛""似乎""不禁""缓缓""微微""淡淡"等空洞的修饰词堆砌
+   - 不要套路化：避免"眉头一皱""嘴角上扬""眼中闪过一丝"等模板化描写
+   - 展现而非陈述：用具体的动作、对话、细节来表现，而不是直接告诉 reader 角色在想什么、感受什么
+     - 错误："她感到很悲伤。"
+     - 正确："她的手指无意识地攥紧了袖口，指节泛白。"
+   - 有节奏感：长短句交替，紧张时短促，舒缓时可以铺陈，不要全是一个节奏
+   - 有留白：不要把所有事情都说透，让 reader 自己体会
+   - 角色鲜活：每个角色的说话方式、用词、动作习惯都要符合其人设，要有辨识度
+   - 避免说明文：不要像写报告一样解释世界观或剧情，要让信息自然融入场景
+   - 感官沉浸：调动视觉、听觉、嗅觉、触觉等多重感官，不要只有视觉描写
 
 【输出格式（严格按以下结构，不要省略任何标记）】
 【思考】
@@ -453,6 +469,7 @@ ${personRule}
    - 文风要求是什么？（参考注入的【文风】）
    - 这种文风的关键特征是什么？（用词倾向、句式节奏、描写重点、情绪基调）
    - 本回合场景适合如何运用这种文风？哪些细节值得用文风着重描写？
+   - 【避免八股】检查：本回合是否有 AI 味的风险？哪些地方容易写成空洞修饰？如何用具体细节替代？
 
 3. 行动后果推演：
    - user 的行动会直接导致什么结果？
@@ -489,10 +506,14 @@ ${personRule}
    - 将如何组织正文？重点描写什么？
    - 如何运用文风？
    - 如何让角色鲜活、世界真实？
+   - 开头如何抓人？避免平铺直叙的开场
+   - 哪些地方需要留白？
    - **确保不抢话：可以写 user 行动的直接结果，但不捏造 user 输入里没有的言行**
 
 【正文】
-（剧情正文，人称：${personDesc}。文风遵循设定。遵守【不抢话原则】：可以写 user 行动的直接结果，但不要捏造 user 没输入的言行，不要替 user 做下一个决定。）
+（剧情正文，人称：${personDesc}。文风遵循设定。
+【文笔要求】：避免 AI 味和八股文，不要空洞修饰词堆砌，不要模板化描写。展现而非陈述，用具体动作细节表现情绪。长短句交替有节奏感。留白让 reader 体会。角色说话方式符合人设有辨识度。调动多重感官。
+遵守【不抢话原则】：可以写 user 行动的直接结果，但不要捏造 user 没输入的言行，不要替 user 做下一个决定。）
 
 【选项】
 1. 选项一
@@ -726,6 +747,20 @@ ${personRule}
    - 结尾留白，让 user 想输入第一个行动
 8. 结尾留白，让 user 想输入第一个行动。不要替 user 总结或暗示下一步具体做什么。
 9. 篇幅 500-1000 字。
+10. 语言规则：如果角色的设定是非中文母语（如英语、日语、法语等），该角色说话时必须用其母语，随后在括号内给出中文翻译。
+   - 示例：英裔角色说话：「Good morning, detective.」（早上好，侦探。）
+   - 示例：日裔角色说话：「おはよう、探偵さん。」（早上好，侦探先生。）
+   - 角色的内心活动、动作描写仍用中文
+   - user 的语言不受此规则影响
+11. 【文笔要求（极高优先级）】
+   - 避免 AI 味和八股文：不要用"仿佛""似乎""不禁""缓缓""微微""淡淡"等空洞的修饰词堆砌
+   - 不要套路化：避免"眉头一皱""嘴角上扬""眼中闪过一丝"等模板化描写
+   - 展现而非陈述：用具体的动作、对话、细节来表现，而不是直接告诉 reader 角色在想什么、感受什么
+   - 有节奏感：长短句交替，紧张时短促，舒缓时可以铺陈
+   - 有留白：不要把所有事情都说透，让 reader 自己体会
+   - 角色鲜活：每个角色的说话方式、用词、动作习惯都要符合其人设，要有辨识度
+   - 避免说明文：不要像写报告一样解释世界观或剧情，要让信息自然融入场景
+   - 感官沉浸：调动视觉、听觉、嗅觉、触觉等多重感官，不要只有视觉描写
 
 【基础世界设定】
 ${baseWorldSetting || "（无）"}
@@ -1251,6 +1286,26 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     background: rgba(0,0,0,0.04);
     border-left: 3px solid rgba(0,0,0,0.2);
   }
+
+  /* === 角色档案展开/折叠 === */
+  .${ROOT_CLASS} .tlg-char-detail {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-char-detail {
+    border-top-color: rgba(0,0,0,0.08);
+  }
+
+  /* === 生成中禁用态 === */
+  .${ROOT_CLASS} .tlg-icon-btn.tlg-disabled,
+  .${ROOT_CLASS} .tlg-btn.tlg-disabled,
+  .${ROOT_CLASS} .tlg-btn-ghost.tlg-disabled,
+  .${ROOT_CLASS} .tlg-fab.tlg-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
   `;
 
   // ============================================================
@@ -1268,6 +1323,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     routeStack: [], // 路由栈，用于 settings/logs 等覆盖层返回
     fabOpen: false, // 悬浮球菜单是否展开
     fabPanel: null, // 当前打开的悬浮小窗类型
+    generating: false, // 是否正在流式生成中（防止 UI.render 打断）
 
     on(event, fn) {
       this.listeners.push({ event, fn });
@@ -1285,6 +1341,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     },
 
     navigate(route, data) {
+      if (this.generating) {
+        window.Roche.ui.toast("生成进行中，请稍候");
+        return;
+      }
       if (route === "settings" || route === "logs") {
         if (!this.routeStack) this.routeStack = [];
         this.routeStack.push({ route: this.route, data: this.routeData });
@@ -1297,6 +1357,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     },
 
     goBack() {
+      if (this.generating) {
+        window.Roche.ui.toast("生成进行中，请稍候");
+        return;
+      }
       if (this.routeStack && this.routeStack.length > 0) {
         const prev = this.routeStack.pop();
         this.route = prev.route;
@@ -1364,6 +1428,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         standingOrders: Array.isArray(standingOrders) ? standingOrders : [], // 常驻指令（字符串数组）
         pendingMainOutput: "", // 当前回合已生成但尚未被副2-总结的主API输出
         lastInjects: null, // 上一次主 API 的 injects 快照（供 rerollMain 使用）
+        pendingRetry: null, // 失败重试信息 { step, userInput, usedClues, injects, turnNumber }
         history: [], // 历史记录区，每项 { type: "user"|"model"|"opening", text, thinking?, turnNumber }
         createdAt: Date.now(),
       };
@@ -1372,6 +1437,8 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         state.characterTable[c.id] = {
           name: c.name || c.handle,
           handle: c.handle,
+          persona: c.persona || c.bio || "",
+          bio: c.bio || c.persona || "",
           loopInteraction: "",
           crossLoopObservation: "",
           present: true,
@@ -1572,6 +1639,9 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         state.pendingMainOutput = "";
       }
 
+      // 记录失败重试信息（sub1 失败 → main 失败 → 成功）
+      state.pendingRetry = { step: "sub1", userInput, usedClues, turnNumber: state.turnNumber };
+
       // b/c. 副1 → 主
       const charList = await this.getCharList(state, roche);
       const presentChars = charList.filter(c => state.characterTable[c.id] && state.characterTable[c.id].present);
@@ -1635,6 +1705,9 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         openingScene: isFirstTurn ? (state.openingScene || "") : "",
       };
       state.lastInjects = injects;
+      // 进入 main 步骤，记录 injects 供重试使用
+      state.pendingRetry.step = "main";
+      state.pendingRetry.injects = injects;
 
       const mainMessages = Prompts.mainNarrate(injects);
       const settings = App.settings || DEFAULT_SETTINGS;
@@ -1665,6 +1738,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         } catch (e) {}
         state.pendingMainOutput = "";
         state.lastInjects = null;
+        state.pendingRetry = null;
         await this.rewindLoop(state, "死亡：" + (judge.death.cause || ""));
         await this.saveCurrent(state);
         return { modelOutput, judge, state, died: true };
@@ -1681,6 +1755,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         // 前两回合更新
         state.prevTurns.push({ userInput, modelOutput });
         if (state.prevTurns.length > 2) state.prevTurns.shift();
+        state.pendingRetry = null;
         await this.saveCurrent(state);
         return { modelOutput, judge, state, broke: true };
       }
@@ -1690,10 +1765,84 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       if (state.prevTurns.length > 2) state.prevTurns.shift();
       state.pendingMainOutput = modelOutput;
       state.turnNumber += 1;
+      state.pendingRetry = null;
       await this.saveState(state);
       await this.saveCurrent(state);
 
       return { modelOutput, judge, state };
+    },
+
+    // 失败后重新生成：根据 state.pendingRetry.step 从对应步骤继续
+    // - step === "sub1"：重新调用 runTurn（从头开始）
+    // - step === "main"：用 pendingRetry.injects 重新调主，再走判定/死亡/破局流程
+    async retryPending(state, roche, onMainChunk) {
+      if (!state.pendingRetry) return null;
+      const { step, userInput, usedClues, injects } = state.pendingRetry;
+
+      if (step === "sub1") {
+        // 从头开始：清空 pendingRetry 后调用 runTurn（runTurn 会重新设置 pendingRetry）
+        state.pendingRetry = null;
+        return await this.runTurn(state, userInput, usedClues, roche, onMainChunk);
+      }
+
+      if (step === "main") {
+        // 用 injects 重新调主 API
+        const mainMessages = Prompts.mainNarrate(injects);
+        const settings = App.settings || DEFAULT_SETTINGS;
+        let modelOutput;
+        if (settings.streamEnabled) {
+          modelOutput = await API.callStream("main", mainMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber }, onMainChunk);
+        } else {
+          modelOutput = await API.call("main", mainMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
+        }
+
+        const judge = this._parseJudgeFromOutput(modelOutput);
+
+        // 死亡处理
+        if (judge.death && judge.death.died) {
+          state.deathTable.push({
+            loopNumber: state.loopNumber,
+            turnNumber: state.turnNumber,
+            cause: judge.death.cause || "",
+            details: judge.death.details || "",
+            ts: Date.now(),
+          });
+          state.deathCount += 1;
+          state.pendingMainOutput = "";
+          try { await this.applySummary(state, modelOutput, roche); } catch (e) {}
+          state.pendingMainOutput = "";
+          state.lastInjects = null;
+          state.pendingRetry = null;
+          await this.rewindLoop(state, "死亡：" + (judge.death.cause || ""));
+          await this.saveCurrent(state);
+          return { modelOutput, judge, state, died: true };
+        }
+
+        // 破局处理
+        if (typeof judge.loopEndMet === "boolean" && judge.loopEndMet) {
+          state.loopEndMet = true;
+          state.pendingMainOutput = modelOutput;
+          try { await this.applySummary(state, modelOutput, roche); } catch (e) {}
+          state.pendingMainOutput = "";
+          state.prevTurns.push({ userInput, modelOutput });
+          if (state.prevTurns.length > 2) state.prevTurns.shift();
+          state.pendingRetry = null;
+          await this.saveCurrent(state);
+          return { modelOutput, judge, state, broke: true };
+        }
+
+        // 正常：设置 pendingMainOutput，等待下一回合总结
+        state.prevTurns.push({ userInput, modelOutput });
+        if (state.prevTurns.length > 2) state.prevTurns.shift();
+        state.pendingMainOutput = modelOutput;
+        state.turnNumber += 1;
+        state.pendingRetry = null;
+        await this.saveState(state);
+        await this.saveCurrent(state);
+        return { modelOutput, judge, state };
+      }
+
+      return null;
     },
 
     // 重 roll 主 API：用与上一次相同的 injects（同一回合种子和注入）重新调用主 API，
@@ -1844,14 +1993,23 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       }
 
       if (showBack) {
-        topbar.appendChild(el("button", { class: "tlg-icon-btn", onclick: () => App.goBack() },
-          el("span", { innerHTML: svgIcon("back", 20) })));
+        const backBtn = el("button", { class: "tlg-icon-btn" + (App.generating ? " tlg-disabled" : ""), onclick: () => App.goBack() },
+          el("span", { innerHTML: svgIcon("back", 20) }));
+        if (App.generating) backBtn.disabled = true;
+        topbar.appendChild(backBtn);
       }
       topbar.appendChild(el("div", { class: "tlg-title" }, title));
-      topbar.appendChild(el("button", { class: "tlg-icon-btn", onclick: () => App.navigate("settings") },
-        el("span", { innerHTML: svgIcon("settings", 20) })));
-      topbar.appendChild(el("button", { class: "tlg-icon-btn", onclick: () => { try { window.Roche.ui.closeApp(); } catch(e){} } },
-        el("span", { innerHTML: svgIcon("close", 20) })));
+      const settingsBtn = el("button", { class: "tlg-icon-btn" + (App.generating ? " tlg-disabled" : ""), onclick: () => App.navigate("settings") },
+        el("span", { innerHTML: svgIcon("settings", 20) }));
+      if (App.generating) settingsBtn.disabled = true;
+      topbar.appendChild(settingsBtn);
+      const closeBtn = el("button", { class: "tlg-icon-btn" + (App.generating ? " tlg-disabled" : ""), onclick: () => {
+        if (App.generating) { window.Roche.ui.toast("生成进行中，请稍候"); return; }
+        try { window.Roche.ui.closeApp(); } catch(e){}
+      } },
+        el("span", { innerHTML: svgIcon("close", 20) }));
+      if (App.generating) closeBtn.disabled = true;
+      topbar.appendChild(closeBtn);
 
       content.appendChild(contentInner);
 
@@ -2153,6 +2311,8 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           if (story) story.textContent = "生成开场中...";
 
           // 6. 额外调用一次主 API 流式生成开场序幕，实时更新 storyArea
+          // 设置 generating 标志，避免 user 点击设置/悬浮球打断流式
+          App.generating = true;
           const openingMessages = Prompts.mainOpening(baseWorldSetting, baseSeed, state.charList, state.person, state.style, state.userPersona && (state.userPersona.persona || state.userPersona.bio));
           let openingScene = "";
           try {
@@ -2167,6 +2327,8 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
             } catch (e2) {
               openingScene = "";
             }
+          } finally {
+            App.generating = false;
           }
 
           // 7. 写入 openingScene，初始化 history，保存并重新渲染（从 history 渲染 storyArea）
@@ -2258,6 +2420,17 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         " 重新生成本回合"
       );
       wrap.appendChild(rerollBtn);
+
+      // 重新生成按钮（失败后从失败处继续，与 rerollBtn 区分）
+      const retryBtn = el("button", { class: "tlg-btn-ghost tlg-mt-8", style: "display:none;" },
+        el("span", { innerHTML: svgIcon("refresh", 16) }),
+        " 重新生成"
+      );
+      wrap.appendChild(retryBtn);
+      // 兼容旧存档：若进入游戏时已有 pendingRetry，显示重新生成按钮
+      if (state.pendingRetry) {
+        retryBtn.style.display = "";
+      }
 
       // 已选线索展示
       const usedCluesArea = el("div", { id: "tlg-used-clues", class: "tlg-mb-8" });
@@ -2363,6 +2536,17 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         scrollBottom();
       };
 
+      // 关闭悬浮球面板/菜单与侧边栏（不调用 UI.render，避免打断流式回调）
+      const closeOverlaysForGen = () => {
+        App.fabOpen = false;
+        App.fabPanel = null;
+        if (App.root) {
+          App.root.classList.remove("sidebar-open");
+          const overlays = App.root.querySelectorAll(".tlg-fab-panel, .tlg-fab-menu");
+          overlays.forEach(o => { o.style.display = "none"; });
+        }
+      };
+
       sendBtn.addEventListener("click", async () => {
         const input = document.getElementById("tlg-action-input");
         const action = input.value.trim();
@@ -2371,7 +2555,11 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         sendBtn.textContent = "推进中...";
         optionsArea.replaceChildren();
         rerollBtn.style.display = "none";
+        retryBtn.style.display = "none";
         lastTurnInput = null;
+        // 关闭可能打开的悬浮球/侧边栏，避免打断流式回调
+        closeOverlaysForGen();
+        App.generating = true;
 
         // 先追加 user 输入到 storyArea 和 history
         const userEntry = { type: "user", text: action, turnNumber: state.turnNumber };
@@ -2414,6 +2602,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           if (result.died) {
             window.Roche.ui.toast("user 死亡，触发回溯");
             rerollBtn.style.display = "none";
+            retryBtn.style.display = "none";
             lastTurnInput = null;
             App.state = state;
             storyArea.appendChild(el("div", { class: "tlg-divider" }));
@@ -2434,6 +2623,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           // 破局：runTurn 内部已处理总结，这里只生成结局
           if (result.broke) {
             rerollBtn.style.display = "none";
+            retryBtn.style.display = "none";
             lastTurnInput = null;
             storyArea.appendChild(el("div", { class: "tlg-divider" }));
             storyArea.appendChild(el("div", { class: "tlg-faded" }, "破局成功，生成结局中..."));
@@ -2451,24 +2641,112 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           // 正常：显示重新生成按钮
           lastTurnInput = { action: capturedAction, usedClues: capturedClues };
           rerollBtn.style.display = "";
+          retryBtn.style.display = "none";
           App.state = state;
         } catch (e) {
           // 移除流式占位
           streamEntry.remove();
           window.Roche.ui.toast("出错：" + (e.message || "未知错误"));
-          // runTurn 失败：移除最后一条 user 输入（保持数据一致性）
-          if (state.history.length > 0 && state.history[state.history.length - 1].type === "user") {
-            state.history.pop();
-            const userNodes = storyArea.querySelectorAll(".tlg-history-user");
-            if (userNodes.length > 0) {
-              userNodes[userNodes.length - 1].remove();
-            }
+          // 失败：不移除 user 输入，保留以供"重新生成"使用
+          // state.pendingRetry 已由 runTurn 记录，显示重新生成按钮
+          if (state.pendingRetry) {
+            retryBtn.style.display = "";
           }
-          storyArea.appendChild(el("div", { class: "tlg-faded" }, "出错，请重试。"));
+          storyArea.appendChild(el("div", { class: "tlg-faded" }, "出错，可点击「重新生成」从失败处继续。"));
           scrollBottom();
         } finally {
+          App.generating = false;
           sendBtn.disabled = false;
           sendBtn.textContent = "行动";
+        }
+      });
+
+      // 重新生成（失败后从失败处继续）：根据 pendingRetry.step 重试
+      retryBtn.addEventListener("click", async () => {
+        if (!state.pendingRetry) return;
+        // 先捕获 userInput/usedClues（retryPending 成功后会清空 pendingRetry）
+        const capturedUserInput = state.pendingRetry.userInput || "";
+        const capturedUsedClues = (state.pendingRetry.usedClues || []).slice();
+        retryBtn.disabled = true;
+        const prevText = retryBtn.innerHTML;
+        retryBtn.innerHTML = "重新生成中...";
+        optionsArea.replaceChildren();
+        closeOverlaysForGen();
+        App.generating = true;
+
+        // 流式占位条目
+        const streamEntry = el("div", { class: "tlg-history-model tlg-history-streaming" }, "正在重新生成...");
+        storyArea.appendChild(streamEntry);
+        scrollBottom();
+
+        const onMainChunk = (chunk, fullText) => {
+          streamEntry.textContent = fullText;
+          scrollBottom();
+        };
+        try {
+          const result = await Engine.retryPending(state, App.roche, onMainChunk);
+          streamEntry.remove();
+          if (!result) {
+            storyArea.appendChild(el("div", { class: "tlg-faded" }, "无可重试的步骤。"));
+            scrollBottom();
+            retryBtn.style.display = "none";
+            return;
+          }
+          // 追加解析后的 model 条目（user 输入已在 history 中）
+          appendModelEntry(result.modelOutput, state.turnNumber);
+
+          if (result.died) {
+            window.Roche.ui.toast("user 死亡，触发回溯");
+            rerollBtn.style.display = "none";
+            retryBtn.style.display = "none";
+            lastTurnInput = null;
+            App.state = state;
+            storyArea.appendChild(el("div", { class: "tlg-divider" }));
+            storyArea.appendChild(el("button", {
+              class: "tlg-btn tlg-mt-16",
+              onclick: () => {
+                state.history = state.openingScene
+                  ? [{ type: "opening", text: state.openingScene, turnNumber: 0 }]
+                  : [];
+                App.state = state;
+                UI.render();
+              }
+            }, "回溯到循环开始"));
+            scrollBottom();
+            return;
+          }
+          if (result.broke) {
+            rerollBtn.style.display = "none";
+            retryBtn.style.display = "none";
+            lastTurnInput = null;
+            storyArea.appendChild(el("div", { class: "tlg-divider" }));
+            storyArea.appendChild(el("div", { class: "tlg-faded" }, "破局成功，生成结局中..."));
+            scrollBottom();
+            try {
+              const ending = await Engine.runEnding(state, App.roche);
+              appendEndingEntry(ending, state.turnNumber);
+            } catch (e2) {
+              storyArea.appendChild(el("div", { class: "tlg-faded" }, "结局生成失败：" + (e2.message || "")));
+              scrollBottom();
+            }
+            App.state = state;
+            return;
+          }
+          // 正常：隐藏 retryBtn，显示 rerollBtn
+          retryBtn.style.display = "none";
+          // 记录 lastTurnInput 以支持后续 reroll
+          lastTurnInput = { action: capturedUserInput, usedClues: capturedUsedClues };
+          rerollBtn.style.display = "";
+          App.state = state;
+        } catch (e) {
+          streamEntry.remove();
+          window.Roche.ui.toast("出错：" + (e.message || "未知错误"));
+          storyArea.appendChild(el("div", { class: "tlg-faded" }, "出错，可再次点击「重新生成」。"));
+          scrollBottom();
+        } finally {
+          App.generating = false;
+          retryBtn.disabled = false;
+          retryBtn.innerHTML = prevText;
         }
       });
 
@@ -2479,6 +2757,8 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         const prevText = rerollBtn.innerHTML;
         rerollBtn.innerHTML = "重新生成中...";
         optionsArea.replaceChildren();
+        closeOverlaysForGen();
+        App.generating = true;
 
         // 流式占位条目
         const streamEntry = el("div", { class: "tlg-history-model tlg-history-streaming" }, "正在重新生成...");
@@ -2540,6 +2820,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           storyArea.appendChild(el("div", { class: "tlg-faded" }, "出错，请重试。"));
           scrollBottom();
         } finally {
+          App.generating = false;
           rerollBtn.disabled = false;
           rerollBtn.innerHTML = prevText;
         }
@@ -2696,10 +2977,12 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     renderFab() {
       const wrap = el("div", null);
       // 悬浮球按钮
-      const fab = el("button", { class: "tlg-fab", onclick: () => {
+      const fab = el("button", { class: "tlg-fab" + (App.generating ? " tlg-disabled" : ""), onclick: () => {
+        if (App.generating) { window.Roche.ui.toast("生成进行中，请稍候"); return; }
         App.fabOpen = !App.fabOpen;
         UI.render();
       } }, el("span", { innerHTML: svgIcon("menu", 24) }));
+      if (App.generating) fab.disabled = true;
       wrap.appendChild(fab);
 
       // 菜单（仅当 fabOpen 且没有打开小窗时）
@@ -2821,14 +3104,37 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         } else {
           for (const id in state.characterTable) {
             const c = state.characterTable[id];
-            body.appendChild(el("div", { class: "tlg-card" },
-              el("div", { class: "tlg-row", style: "justify-content:space-between;" },
-                el("div", { style: "font-weight:600;" }, c.name || c.handle || "未命名"),
-                el("span", { class: "tlg-tag" + (c.present ? "" : " tlg-faded") }, c.present ? "在场" : "退场")
-              ),
-              c.loopInteraction ? el("div", { class: "tlg-faded tlg-mt-8" }, "本次循环：" + c.loopInteraction) : null,
-              c.crossLoopObservation ? el("div", { class: "tlg-faded tlg-mt-8" }, "跨循环：" + c.crossLoopObservation) : null
-            ));
+            const card = el("div", { class: "tlg-card", style: "cursor:pointer;margin-bottom:8px;" });
+            const header = el("div", { class: "tlg-row", style: "justify-content:space-between;" },
+              el("div", { style: "font-weight:600;" }, c.name || c.handle || "未命名"),
+              el("div", { class: "tlg-row tlg-gap-8" },
+                el("span", { class: "tlg-tag" + (c.present ? "" : " tlg-faded") }, c.present ? "在场" : "退场"),
+                el("span", { class: "tlg-faded", style: "font-size:11px;" }, "[展开]")
+              )
+            );
+            card.appendChild(header);
+            const detail = el("div", { class: "tlg-char-detail", style: "display:none;margin-top:8px;" });
+            // 完整人设
+            detail.appendChild(el("div", { class: "tlg-label" }, "完整人设"));
+            detail.appendChild(el("div", { class: "tlg-prose", style: "white-space:pre-wrap;font-size:13px;" }, c.persona || c.bio || "（无）"));
+            // 本次循环交互
+            if (c.loopInteraction) {
+              detail.appendChild(el("div", { class: "tlg-label tlg-mt-8" }, "本次循环交互"));
+              detail.appendChild(el("div", { class: "tlg-prose", style: "white-space:pre-wrap;font-size:13px;opacity:0.75;" }, c.loopInteraction));
+            }
+            // 跨循环观察
+            if (c.crossLoopObservation) {
+              detail.appendChild(el("div", { class: "tlg-label tlg-mt-8" }, "跨循环观察"));
+              detail.appendChild(el("div", { class: "tlg-prose", style: "white-space:pre-wrap;font-size:13px;opacity:0.75;" }, c.crossLoopObservation));
+            }
+            card.appendChild(detail);
+            const toggleLabel = header.querySelector(".tlg-faded[style*=\"font-size:11px\"]");
+            card.onclick = () => {
+              const isOpen = detail.style.display === "none";
+              detail.style.display = isOpen ? "block" : "none";
+              if (toggleLabel) toggleLabel.textContent = isOpen ? "[折叠]" : "[展开]";
+            };
+            body.appendChild(card);
           }
         }
       } else if (type === "death") {
