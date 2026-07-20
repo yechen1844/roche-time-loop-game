@@ -409,6 +409,9 @@ ${(usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "
 
     // 主 API：推剧情（自判死亡/破局 + 思维链 + 人称）
     mainNarrate(injects) {
+      const personDesc = (injects.person === "第二人称")
+        ? "第二人称（用「你」来指代 user）"
+        : "第三人称（类似小说叙事，可以用 user 的名字，也可以用「她/他/他们/它」等代词）";
       return [
         {
           role: "system",
@@ -419,17 +422,17 @@ ${(usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "
 2. 先思考再输出正文。
 3. 【绝对禁止】替 user 行动、说话、做决定。你只能描述世界、NPC、环境对 user 行动的反应。user 的行动只能由 user 自己输入。违反此规则会彻底破坏游戏。
 4. 没有任何一次死亡会被轻视。
-5. 死亡判定：只有当 user 的行动或局势必然导致死亡时才 died=true，不要随意杀害 user。
+5. 死亡判定：只有当 user 的行动或局势必然导致 user 本人死亡时才 died=true，不要随意杀害 user。death.died 只判断 user 本人是否死亡。char/NPC 的死亡不触发回溯，只会在正文中体现，绝不让 user 因 char 死亡而重生。
 6. 破局判定：当达成破局条件时 loopEndMet=true。
 7. 选项必须有意义、有分支感，不要敷衍，给出 3-4 个不同方向的选项。
 8. 若 user 行动会触发即兴线索（如 char 透露秘密），自然写入正文。
 
 【输出格式（严格按以下结构，不要省略任何标记）】
 【思考】
-（分析当前局势、user 行动的可能后果、是否触发死亡条件、是否达成破局条件。这是你的内部思考，user 看不到。）
+（分析当前局势、user 行动的可能后果、是否触发 user 死亡条件、是否达成破局条件。这是你的内部思考，user 看不到。）
 
 【正文】
-（剧情正文，${injects.person || "第三人称"}，文风遵循设定。绝对不要替 user 做出任何行动、决定、说话。只描述世界、NPC、环境对 user 行动的反应。）
+（剧情正文，人称：${personDesc}。文风遵循设定。绝对不要替 user 做出任何行动、决定、说话。只描述世界、NPC、环境对 user 行动的反应。）
 
 【选项】
 1. 选项一
@@ -439,6 +442,10 @@ ${(usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "
 
 【判定】
 {"death":{"died":false,"cause":"","details":""},"loopEndMet":false}
+
+【判定字段说明】
+- death.died：只判断 user 本人是否死亡。char/NPC 死亡时此字段必须为 false。
+- loopEndMet：是否达成破局条件。
 
 【基础世界设定】
 ${injects.baseWorldSetting || "（无）"}
@@ -564,18 +571,17 @@ ${(charCrossLoopMemories || []).map(c => "### " + (c.name || c.handle) + "\n" + 
       ];
     },
 
-    // 创建存档：主 API 生成基础世界设定 + 开场序幕（分两部分输出）
+    // 创建存档：主 API 生成基础世界设定（只生成世界设定，开场序幕由 mainOpening 单独生成）
     mainCreateWorld(mode, userPersona, charList, task, worldview, person) {
       return [
         {
           role: "system",
-          content: `你是时间循环文游的「世界设定生成器」。基于 user 输入生成基础世界设定与开场序幕。
+          content: `你是时间循环文游的「世界设定生成器」。基于 user 输入生成基础世界设定（固定底座）。
 
 【严格规则】
-1. 输出分两部分，分别用 \`【世界设定】\` 和 \`【开场序幕】\` 标记开头，两部分都必须出现，按顺序输出。
-2. 【世界设定】：固定底座。包含：世界背景、主要地点、关键人物关系、时间线框架。若有任务，写入任务、达成条件、循环开始/结束点。写入死亡判定条件与回溯规则。篇幅 800-1500 字。
-3. 【开场序幕】：游戏第一回合 user 看到的开场剧情。${person || "第三人称"}，呈现 user 进入循环起点的场景、氛围与初始状况。不要替 user 做决定或行动。篇幅 300-600 字。
-4. 不要输出选项，开场序幕只描述场景。
+1. 只输出世界设定正文，不要任何标记（不要写【世界设定】、【开场序幕】等标题），不要输出开场剧情、不要输出选项。
+2. 世界设定包含：世界背景、主要地点、关键人物关系、时间线框架。若有任务，写入任务、达成条件、循环开始/结束点。写入死亡判定条件与回溯规则。
+3. 篇幅 800-1500 字。
 
 【模式】${MODE_LABEL[mode] || mode}
 
@@ -591,7 +597,50 @@ ${task || "（无）"}
 【user 输入的世界观】
 ${worldview || "（无）"}
 
-请输出（含两部分标记）：`,
+请直接输出世界设定正文：`,
+        },
+        { role: "user", content: "请开始。" },
+      ];
+    },
+
+    // 创建存档：主 API 单独生成开场序幕（流式调用，user 可看到生成进度）
+    // 注入文风、注入 char 完整人设、注入 user 人设、绝不替 user 行动或说话、结尾留白
+    mainOpening(baseWorldSetting, baseSeed, charList, person, style, userPersona) {
+      const personDesc = person === "第二人称"
+        ? "第二人称（用「你」来指代 user）"
+        : "第三人称（类似小说叙事，可以用 user 的名字，也可以用「她/他/他们/它」等代词）";
+      return [
+        {
+          role: "system",
+          content: `你是时间循环文游的「开场序幕生成器」。基于基础世界设定与基础剧本种子，生成游戏第一回合 user 看到的开场剧情。
+
+【严格规则】
+1. 只输出开场正文，不要任何标记（不要写【开场序幕】、【正文】等标题），不要输出选项，不要输出判定 JSON。
+2. 呈现 user 进入循环起点的场景、氛围与初始状况、周围环境、可能存在的 NPC。
+3. 人称：${personDesc}。
+4. 文风严格遵循下方「文风」设定。
+5. 注入 char 完整人设，char 的言行需符合其设定。
+6. 注入 user 人设，user 的初始状态需符合其人设。
+7. 【绝对禁止】替 user 行动、说话、做决定。你只能描述世界、NPC、环境。user 的行动只能由 user 自己输入。违反此规则会彻底破坏游戏。
+8. 结尾留白，让 user 想输入第一个行动。不要替 user 总结或暗示下一步具体做什么。
+9. 篇幅 500-1000 字。
+
+【基础世界设定】
+${baseWorldSetting || "（无）"}
+
+【基础剧本种子】
+${baseSeed || "（无）"}
+
+【文风】
+${style || "（无）"}
+
+【user 人设】
+${userPersona || "（无）"}
+
+【char 列表（完整人设）】
+${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona || c.bio || "")).join("\n\n") || "（无）"}
+
+请直接输出开场正文：`,
         },
         { role: "user", content: "请开始。" },
       ];
@@ -865,7 +914,76 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     border-left: 3px solid rgba(255,255,255,0.2);
   }
 
-  /* === 主题（日间 / 夜间），作用于悬浮球面板与菜单 === */
+  /* === 主题（日间 / 夜间），覆盖整个插件 UI（背景、文字、卡片、输入框、表格、侧边栏、悬浮球面板等） === */
+  /* 日间主题：背景偏青白，文字偏深，卡片偏白 */
+  .${ROOT_CLASS}[data-theme="light"] {
+    background: #f0f8f8;
+    color: #2a3a3a;
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-card {
+    background: #ffffff;
+    border: 1px solid #d0e0e0;
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-input,
+  .${ROOT_CLASS}[data-theme="light"] .tlg-textarea,
+  .${ROOT_CLASS}[data-theme="light"] .tlg-select {
+    background: #ffffff;
+    border: 1px solid #d0e0e0;
+    color: #2a3a3a;
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-topbar {
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-status-bar {
+    border-top: 1px solid rgba(0,0,0,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-table th,
+  .${ROOT_CLASS}[data-theme="light"] .tlg-table td {
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-sidebar {
+    background: rgba(240,248,248,0.98);
+    color: #2a3a3a;
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-sidebar-overlay {
+    background: rgba(0,0,0,0.25);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-tab-bar {
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-tab.active {
+    border-bottom-color: #5a90c0;
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-option,
+  .${ROOT_CLASS}[data-theme="light"] .tlg-option-btn {
+    background: rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-option:hover,
+  .${ROOT_CLASS}[data-theme="light"] .tlg-option-btn:hover {
+    background: rgba(0,0,0,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-clue-card {
+    background: rgba(0,0,0,0.02);
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-clue-card:hover {
+    background: rgba(0,0,0,0.06);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-clue-card.selected {
+    border-color: #5a90c0;
+    background: rgba(90,144,192,0.15);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-thinking-body {
+    background: rgba(0,0,0,0.04);
+    border-left: 3px solid rgba(0,0,0,0.2);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-icon-btn:hover {
+    background: rgba(0,0,0,0.06);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-divider {
+    background: rgba(0,0,0,0.08);
+  }
   .${ROOT_CLASS}[data-theme="light"] .tlg-fab-panel {
     background: #f0f8f8; color: #2a3a3a;
     box-shadow: 0 4px 20px rgba(0,0,0,0.18);
@@ -882,6 +1000,76 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
   }
   .${ROOT_CLASS}[data-theme="light"] .tlg-fab-menu button:hover {
     background: rgba(0,0,0,0.06);
+  }
+
+  /* 夜间主题：背景偏深，文字偏浅，卡片偏深 */
+  .${ROOT_CLASS}[data-theme="dark"] {
+    background: #1a1a1f;
+    color: #e0e0e0;
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-card {
+    background: #252530;
+    border: 1px solid #3a3a45;
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-input,
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-textarea,
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-select {
+    background: #2a2a35;
+    border: 1px solid #3a3a45;
+    color: #e0e0e0;
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-topbar {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-status-bar {
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-table th,
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-table td {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-sidebar {
+    background: rgba(20,20,28,0.98);
+    color: #e0e0e0;
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-sidebar-overlay {
+    background: rgba(0,0,0,0.5);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-tab-bar {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-tab.active {
+    border-bottom-color: #5a90c0;
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-option,
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-option-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-option:hover,
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-option-btn:hover {
+    background: rgba(255,255,255,0.1);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-clue-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-clue-card:hover {
+    background: rgba(255,255,255,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-clue-card.selected {
+    border-color: #5a90c0;
+    background: rgba(90,144,192,0.15);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-thinking-body {
+    background: rgba(255,255,255,0.04);
+    border-left: 3px solid rgba(255,255,255,0.2);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-icon-btn:hover {
+    background: rgba(255,255,255,0.1);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-divider {
+    background: rgba(255,255,255,0.08);
   }
   .${ROOT_CLASS}[data-theme="dark"] .tlg-fab-panel {
     background: rgba(20,20,24,0.98); color: #e0e0e0;
@@ -1774,36 +1962,50 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         createBtn.disabled = true;
         createBtn.textContent = "生成世界设定中...";
         try {
-          // 1. 主 API 生成基础世界设定 + 开场序幕（一次性输出两部分）
+          // 1. 主 API 生成基础世界设定（不含开场序幕）
           const worldMessages = Prompts.mainCreateWorld(mode, state.userPersona && (state.userPersona.persona || state.userPersona.bio), state.charList, state.task, state.worldview, state.person);
-          const worldOutput = await API.call("main", worldMessages, {});
-
-          // 解析【世界设定】和【开场序幕】
-          let baseWorldSetting = worldOutput;
-          let openingScene = "";
-          const wsIdx = worldOutput.indexOf("【世界设定】");
-          const osIdx = worldOutput.indexOf("【开场序幕】");
-          if (wsIdx >= 0 && osIdx >= 0 && osIdx > wsIdx) {
-            baseWorldSetting = worldOutput.slice(wsIdx + "【世界设定】".length, osIdx).trim();
-            openingScene = worldOutput.slice(osIdx + "【开场序幕】".length).trim();
-          } else if (wsIdx >= 0) {
-            baseWorldSetting = worldOutput.slice(wsIdx + "【世界设定】".length).trim();
-          } else if (osIdx >= 0) {
-            openingScene = worldOutput.slice(osIdx + "【开场序幕】".length).trim();
-          }
+          const baseWorldSetting = await API.call("main", worldMessages, {});
 
           // 2. 副 API 生成基础剧本种子
           const seedMessages = Prompts.subCreateSeed(baseWorldSetting, mode, state.charList);
           const baseSeed = await API.callWithRetry("sub1", seedMessages, {});
 
-          // 3. 初始化状态（含 person 与 openingScene）
-          App.state = await Engine.initState(mode, state.userPersona, state.charList, state.task, baseWorldSetting, baseSeed, state.style, state.standingOrders, state.person, openingScene);
+          // 3. 初始化状态（openingScene 先空着，进入游戏页面后再流式生成）
+          App.state = await Engine.initState(mode, state.userPersona, state.charList, state.task, baseWorldSetting, baseSeed, state.style, state.standingOrders, state.person, "");
           App.state.loopStartPoint = "循环起点";
           // 写入 saves 数组（初始存档）
           await Engine.saveCurrent(App.state);
 
-          // 4. 进入游戏
+          // 4. 先进入游戏页面，让 user 看到界面（避免长时间卡在创建按钮界面）
           App.navigate("game");
+
+          // 5. 在 game 页面的 storyArea 显示"生成开场中..."
+          const story = document.getElementById("tlg-story");
+          if (story) story.textContent = "生成开场中...";
+
+          // 6. 额外调用一次主 API 流式生成开场序幕，实时更新 storyArea
+          const openingMessages = Prompts.mainOpening(baseWorldSetting, baseSeed, state.charList, state.person, state.style, state.userPersona && (state.userPersona.persona || state.userPersona.bio));
+          let openingScene = "";
+          try {
+            openingScene = await API.callStream("main", openingMessages, {}, (chunk, full) => {
+              const s = document.getElementById("tlg-story");
+              if (s) s.textContent = full;
+            });
+          } catch (e) {
+            // 流式失败降级非流式
+            try {
+              openingScene = await API.call("main", openingMessages, {});
+            } catch (e2) {
+              openingScene = "";
+            }
+          }
+
+          // 7. 写入 openingScene 并保存；失败时 storyArea 显示提示，不阻塞游戏
+          App.state.openingScene = openingScene;
+          if (story) {
+            story.textContent = openingScene || "开场生成失败，请直接输入行动";
+          }
+          await Engine.saveCurrent(App.state);
           window.Roche.ui.toast("存档创建成功");
         } catch (e) {
           window.Roche.ui.toast("创建失败：" + (e.message || "未知错误"));
@@ -2543,9 +2745,9 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
 
       // 主题切换（日间 / 夜间）
       wrap.appendChild(el("div", { class: "tlg-card" },
-        el("div", { class: "tlg-label" }, "侧边栏主题"),
+        el("div", { class: "tlg-label" }, "主题"),
         el("div", { class: "tlg-row", style: "justify-content:space-between;" },
-          el("span", { class: "tlg-faded" }, "悬浮球面板与菜单的配色"),
+          el("span", { class: "tlg-faded" }, "整个插件 UI 的明暗配色（背景、卡片、输入框、表格、侧边栏、悬浮球面板等）"),
           el("div", { class: "tlg-row tlg-gap-8" },
             el("button", { class: "tlg-btn-ghost", onclick: async () => {
               s.theme = "light";
