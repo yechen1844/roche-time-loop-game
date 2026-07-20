@@ -44,6 +44,8 @@
     logEnabled: false,
     safeTop: 0,
     safeBottom: 0,
+    theme: "dark",
+    streamEnabled: true,
     apiConfig: {
       main: { useRoche: true, provider: "", model: "", endpoint: "", apiKey: "", temperature: 0.85 },
       sub1: { useRoche: true, provider: "", model: "", endpoint: "", apiKey: "", temperature: 0.3 },
@@ -258,6 +260,78 @@
       throw new Error("副 API 2 返回无法解析的 JSON");
     },
 
+    // 副 API 1 专用：强规范 JSON 输出，解析失败则重试一次
+    async callSub1ForJSON(messages, opts) {
+      let text = await this.callWithRetry("sub1", messages, opts);
+      let parsed = this._tryParseJSON(text);
+      if (parsed) return parsed;
+      const retry = messages.concat([{ role: "user", content: "请严格只输出一个 JSON 对象，不要任何额外文字、不要代码块标记。直接以 { 开头 } 结尾。" }]);
+      text = await this.callWithRetry("sub1", retry, opts);
+      parsed = this._tryParseJSON(text);
+      if (parsed) return parsed;
+      throw new Error("副 API 1 返回无法解析的 JSON");
+    },
+
+    // 流式调用：每收到一段文本回调 onChunk(chunkText, fullText)，完成后返回完整 text
+    // 流式失败时降级为非流式调用
+    async callStream(role, messages, opts, onChunk) {
+      const settings = await Store.get(STORAGE_KEYS.settings) || DEFAULT_SETTINGS;
+      const cfg = settings.apiConfig[role] || settings.apiConfig.main;
+      const params = {
+        messages,
+        temperature: cfg.temperature,
+        stream: true,
+        rawResponse: true,
+      };
+      if (!cfg.useRoche) {
+        if (cfg.provider) params.provider = cfg.provider;
+        if (cfg.model) params.model = cfg.model;
+        if (cfg.endpoint) params.endpoint = cfg.endpoint;
+        if (cfg.apiKey) params.apiKey = cfg.apiKey;
+      }
+      try {
+        const response = await window.Roche.ai.chat(params);
+        const body = response && response.body;
+        if (!body || typeof body.getReader !== "function") {
+          throw new Error("流式响应不可用");
+        }
+        const reader = body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = "";
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop();
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data:")) continue;
+            const data = trimmed.slice(5).trim();
+            if (data === "[DONE]") continue;
+            try {
+              const json = JSON.parse(data);
+              const chunk = (json.choices && json.choices[0] && json.choices[0].delta && json.choices[0].delta.content) || "";
+              if (chunk) {
+                fullText += chunk;
+                if (onChunk) onChunk(chunk, fullText);
+              }
+            } catch (e) {
+              // 忽略非 JSON 行
+            }
+          }
+        }
+        await Logger.log({ role, messages, reply: fullText, loopNumber: opts && opts.loopNumber, turnNumber: opts && opts.turnNumber });
+        return fullText;
+      } catch (e) {
+        // 降级为非流式
+        const text = await this.call(role, messages, opts);
+        if (onChunk) onChunk(text, text);
+        return text;
+      }
+    },
+
     _tryParseJSON(text) {
       if (!text) return null;
       // 去除代码块
@@ -278,21 +352,24 @@
   // 副 API 强规范提示词
   // ============================================================
   const Prompts = {
-    // 副 API 1：回合前，生成本回合剧本种子
-    sub1Seed(userAction, usedClues, crossLoopMemory, baseWorldSetting, baseSeed, location, time, characters, mode, loopNumber) {
+    // 副 API 1：回合前合并调用，同时生成本回合剧本种子 + 检索相关记忆 id
+    sub1Turn(userAction, usedClues, crossLoopMemory, baseWorldSetting, baseSeed, memoryTable, location, time, characters, mode, loopNumber) {
       return [
         {
           role: "system",
-          content: `你是时间循环文游的「回合前剧本生成器」。你的唯一任务：根据 user 本回合行动，生成「本回合剧本种子」。
+          content: `你是时间循环文游的「回合前剧本生成器 + 记忆检索器」。你的任务：根据 user 本回合行动，生成「本回合剧本种子」并检索相关记忆，输出一个 JSON 对象。
 
 【严格规则】
-1. 只输出一段纯文本的剧本种子，不要 JSON、不要代码块、不要解释。
-2. 剧本种子 = user 当前要去的地点/时间/人物的世界状态 + NPC 行动 + 事件触发点。
-3. 必须与基础剧本种子保持一致（NPC 行动时间线、事件触发条件、默认走向），除非 user 行动产生蝴蝶效应。
-4. 篇幅控制在 300-600 字，精简摘要，不要写完整剧情。
-5. 若 user 去的是新地点：基于基础世界设定补齐该地点的状态。
-6. 若 user 在不同时间探索相同地点：按基础种子推演该时间点的状态。
-7. 不要替 user 决定行动结果，只提供「世界当前状态」。
+1. 只输出一个 JSON 对象，不要任何额外文字、不要代码块标记、不要解释。
+2. 直接以 { 开头 } 结尾。
+3. 字段名严格固定：seed（字符串）、recallMemoryIds（字符串数组）。
+4. seed = 本回合剧本种子（一段纯文本）：user 当前要去的地点/时间/人物的世界状态 + NPC 行动 + 事件触发点。
+5. seed 必须与基础剧本种子保持一致（NPC 行动时间线、事件触发条件、默认走向），除非 user 行动产生蝴蝶效应。
+6. seed 篇幅控制在 300-600 字，精简摘要，不要写完整剧情。
+7. 若 user 去的是新地点：基于基础世界设定补齐该地点的状态。
+8. 若 user 在不同时间探索相同地点：按基础种子推演该时间点的状态。
+9. 剧本种子只描述角色/地点/时间/NPC 今天会遭遇的事件，可给 user 任务条件（如今天要交作业否则挂科），【绝对禁止】替 user 做出任何行动。user 可以自己选择是否去做这些事。
+10. recallMemoryIds：从「本次循环记忆表」的 id 列表中挑选与本回合 user 行动最相关的记忆 id，最少 0 条最多 15 条，按相关性排序。若记忆表为空，返回空数组 []。只返回已存在的 id，不要编造。
 
 【基础世界设定】
 ${baseWorldSetting || "（无）"}
@@ -309,46 +386,28 @@ ${baseSeed || "（无）"}
 【跨循环记忆（user 已掌握，可供参考）】
 ${(crossLoopMemory || []).slice(-15).map(m => "- " + (m.summary || m.text || "")).join("\n") || "（无）"}
 
+【本次循环记忆表（含 id 与原文，模型只挑选 id）】
+${(memoryTable || []).map(m => "- id: " + (m.id || "(无id)") + " | " + (m.summary || "")).join("\n") || "（空）"}
+
 【user 本回合行动】
 ${userAction}
 
 【user 本回合使用的线索】
 ${(usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "（无）"}
 
-现在请输出本回合剧本种子：`,
+【输出 JSON 格式（严格遵守字段名）】
+{
+  "seed": "本回合剧本种子文本",
+  "recallMemoryIds": ["mem-id-1", "mem-id-2"]
+}
+
+请输出 JSON：`,
         },
         { role: "user", content: "请开始。" },
       ];
     },
 
-    // 副 API 1：检索本次循环记忆表，返回相关总结（8-15 条）
-    sub1Recall(memoryTable, userAction, count) {
-      const min = 8, max = 15;
-      const n = Math.min(max, Math.max(min, count || min));
-      return [
-        {
-          role: "system",
-          content: `你是记忆检索器。从「本次循环记忆表」中挑选与 user 本回合行动最相关的记忆总结。
-
-【严格规则】
-1. 只输出一个 JSON 数组，每个元素是字符串（记忆总结）。
-2. 最少 ${min} 条，最多 ${max} 条。若总条数不足 ${min} 条，全部返回。
-3. 按「与 user 行动的相关性」排序。
-4. 不要任何额外文字，直接以 [ 开头 ] 结尾。
-
-【本次循环记忆表】
-${JSON.stringify(memoryTable || [], null, 0)}
-
-【user 本回合行动】
-${userAction}
-
-请输出 JSON 数组：`,
-        },
-        { role: "user", content: "请开始。" },
-      ];
-    },
-
-    // 主 API：推剧情
+    // 主 API：推剧情（自判死亡/破局 + 思维链 + 人称）
     mainNarrate(injects) {
       return [
         {
@@ -356,19 +415,30 @@ ${userAction}
           content: `你是时间循环文游的主剧情生成器。
 
 【核心规则】
-1. 基于本回合剧本种子推进剧情，输出正文 + 2-4 个选项。
-2. 正文用第三人称，文风遵循设定。
-3. 选项必须有意义、有分支感，不要敷衍。
+1. 基于本回合剧本种子推进剧情。
+2. 先思考再输出正文。
+3. 【绝对禁止】替 user 行动、说话、做决定。你只能描述世界、NPC、环境对 user 行动的反应。user 的行动只能由 user 自己输入。违反此规则会彻底破坏游戏。
 4. 没有任何一次死亡会被轻视。
-5. 不要替 user 做决定，把选择权交给 user。
-6. 若 user 行动会触发即兴线索（如 char 透露秘密），自然写入正文。
+5. 死亡判定：只有当 user 的行动或局势必然导致死亡时才 died=true，不要随意杀害 user。
+6. 破局判定：当达成破局条件时 loopEndMet=true。
+7. 选项必须有意义、有分支感，不要敷衍，给出 3-4 个不同方向的选项。
+8. 若 user 行动会触发即兴线索（如 char 透露秘密），自然写入正文。
 
-【输出格式】
-正文...
----
-选项1：...
-选项2：...
-选项3：...
+【输出格式（严格按以下结构，不要省略任何标记）】
+【思考】
+（分析当前局势、user 行动的可能后果、是否触发死亡条件、是否达成破局条件。这是你的内部思考，user 看不到。）
+
+【正文】
+（剧情正文，${injects.person || "第三人称"}，文风遵循设定。绝对不要替 user 做出任何行动、决定、说话。只描述世界、NPC、环境对 user 行动的反应。）
+
+【选项】
+1. 选项一
+2. 选项二
+3. 选项三
+4. 选项四
+
+【判定】
+{"death":{"died":false,"cause":"","details":""},"loopEndMet":false}
 
 【基础世界设定】
 ${injects.baseWorldSetting || "（无）"}
@@ -388,10 +458,10 @@ ${(injects.charProfiles || []).map(c => "### " + (c.handle || c.name) + "\n" + (
 【在场 char 详细记忆】
 ${(injects.charDetails || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.detailMemory || "")).join("\n\n") || "（无）"}
 
-【本次循环已发生事件总结】
-${(injects.loopSummary || []).map(s => "- " + s).join("\n") || "（无）"}
+【本次循环已检索到的相关记忆】
+${(injects.recalledMemories || []).map(s => "- " + s).join("\n") || "（无）"}
 
-【前两回合 user 输入与模型输出】
+【前两回合 user 输入与模型输出（仅正文）】
 ${(injects.prevTurns || []).map(t => "### user：" + t.userInput + "\n模型：" + t.modelOutput).join("\n\n") || "（无）"}
 
 【user 数值】
@@ -409,61 +479,15 @@ ${injects.userAction || "（无）"}
 【user 本回合使用的线索】
 ${(injects.usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "（无）"}
 
-请输出剧情。
-
-【输出结尾要求】
-在正文结尾，另起一行，用 \`【选项】\` 标记开头，然后给出 3-4 个不同方向的选项，每个选项一行，格式如：
-【选项】
-1. 选项一内容
-2. 选项二内容
-3. 选项三内容
-4. 选项四内容`,
+请严格按上述格式输出，包含【思考】【正文】【选项】【判定】四个标记。`,
     },
     { role: "user", content: "请开始。" },
   ];
 },
 
-    // 副 API 2-判定：主 API 输出后立即调用，只判死亡 + 判破局（事实性判断）
-    sub2Judge(modelOutput, state, mode, location, time, characters) {
-      return [
-        {
-          role: "system",
-          content: `你是时间循环文游的「回合判定器」。分析本回合主 API 输出，只做两项事实性判断：是否死亡 + 是否破局。
-
-【严格规则】
-1. 只输出一个 JSON 对象，不要任何额外文字、不要代码块标记、不要解释。
-2. 直接以 { 开头 } 结尾。
-3. 字段名严格固定，不可更改、不可增删。
-
-【本回合主 API 输出】
-${modelOutput}
-
-【当前状态】
-- 模式：${MODE_LABEL[mode] || mode}
-- 第 ${state.loopNumber} 次循环，第 ${state.turnNumber} 回合
-- 当前地点：${location || "（未指定）"}
-- 当前时间：${time || "（未指定）"}
-- 在场人物：${(characters || []).map(c => c.name || c.handle).join("、") || "（无）"}
-- 破局条件：${state.loopEndCondition || "（隐藏）"}
-
-【输出 JSON 格式（严格遵守字段名）】
-{
-  "death": {
-    "died": false,
-    "cause": "死因（若死亡则填，否则空串）",
-    "details": "死亡详情（若死亡则填，否则空串）"
-  },
-  "loopEndMet": false
-}
-
-请输出 JSON：`,
-        },
-        { role: "user", content: "请开始。" },
-      ];
-    },
-
     // 副 API 2-总结：滞后到下一回合开始时调用，对「已确认的上一回合主API输出」做一次
     // 写记忆表 / 地点表 / 时间表 / 人物表 / 挑稳定线索 / 跨循环记忆摘要
+    // 判定（死亡/破局）已交由主 API 自判，此处不再做判定。
     sub2Summary(modelOutput, state, mode, location, time, characters) {
       return [
         {
@@ -474,7 +498,8 @@ ${modelOutput}
 1. 只输出一个 JSON 对象，不要任何额外文字、不要代码块标记。
 2. 直接以 { 开头 } 结尾。
 3. 字段名严格固定，不可更改、不可增删。
-4. 不要在总结里输出 death 或 loopEndMet 字段（判定已由另一处理器完成）。
+4. 不要在总结里输出 death 或 loopEndMet 字段（判定已由主 API 完成）。
+5. memoryEntry 中的 id 字段由前端生成，你不需要输出 id 字段。
 
 【本回合主 API 输出】
 ${modelOutput}
@@ -539,19 +564,18 @@ ${(charCrossLoopMemories || []).map(c => "### " + (c.name || c.handle) + "\n" + 
       ];
     },
 
-    // 创建存档：主 API 生成基础世界设定
-    mainCreateWorld(mode, userPersona, charList, task, worldview) {
+    // 创建存档：主 API 生成基础世界设定 + 开场序幕（分两部分输出）
+    mainCreateWorld(mode, userPersona, charList, task, worldview, person) {
       return [
         {
           role: "system",
-          content: `你是时间循环文游的「世界设定生成器」。基于 user 输入生成基础世界设定。
+          content: `你是时间循环文游的「世界设定生成器」。基于 user 输入生成基础世界设定与开场序幕。
 
 【严格规则】
-1. 输出一段纯文本的基础世界设定，作为固定底座。
-2. 包含：世界背景、主要地点、关键人物关系、时间线框架。
-3. 若有任务，写入任务、达成条件、循环开始/结束点。
-4. 写入死亡判定条件与回溯规则。
-5. 篇幅 800-1500 字。
+1. 输出分两部分，分别用 \`【世界设定】\` 和 \`【开场序幕】\` 标记开头，两部分都必须出现，按顺序输出。
+2. 【世界设定】：固定底座。包含：世界背景、主要地点、关键人物关系、时间线框架。若有任务，写入任务、达成条件、循环开始/结束点。写入死亡判定条件与回溯规则。篇幅 800-1500 字。
+3. 【开场序幕】：游戏第一回合 user 看到的开场剧情。${person || "第三人称"}，呈现 user 进入循环起点的场景、氛围与初始状况。不要替 user 做决定或行动。篇幅 300-600 字。
+4. 不要输出选项，开场序幕只描述场景。
 
 【模式】${MODE_LABEL[mode] || mode}
 
@@ -567,7 +591,7 @@ ${task || "（无）"}
 【user 输入的世界观】
 ${worldview || "（无）"}
 
-请输出基础世界设定：`,
+请输出（含两部分标记）：`,
         },
         { role: "user", content: "请开始。" },
       ];
@@ -828,6 +852,54 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
   }
   .${ROOT_CLASS} .tlg-option-btn:hover { background: rgba(255,255,255,0.1); }
   .${ROOT_CLASS} .tlg-option-btn.used { opacity: 0.5; }
+
+  /* === 思维链折叠 === */
+  .${ROOT_CLASS} .tlg-thinking-toggle {
+    font-size: 12px; opacity: 0.6; cursor: pointer; margin-bottom: 8px;
+    padding: 4px 8px; border-radius: 4px; display: inline-block;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .${ROOT_CLASS} .tlg-thinking-body {
+    font-size: 12px; opacity: 0.7; white-space: pre-wrap; word-break: break-word;
+    background: rgba(255,255,255,0.04); padding: 10px; border-radius: 6px; margin-bottom: 12px;
+    border-left: 3px solid rgba(255,255,255,0.2);
+  }
+
+  /* === 主题（日间 / 夜间），作用于悬浮球面板与菜单 === */
+  .${ROOT_CLASS}[data-theme="light"] .tlg-fab-panel {
+    background: #f0f8f8; color: #2a3a3a;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-fab-panel-head {
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-fab-panel-body .tlg-card {
+    background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-fab-menu {
+    background: #f0f8f8; color: #2a3a3a;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-fab-menu button:hover {
+    background: rgba(0,0,0,0.06);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-fab-panel {
+    background: rgba(20,20,24,0.98); color: #e0e0e0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-fab-panel-head {
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-fab-panel-body .tlg-card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-fab-menu {
+    background: rgba(20,20,24,0.98); color: #e0e0e0;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .${ROOT_CLASS}[data-theme="dark"] .tlg-fab-menu button:hover {
+    background: rgba(255,255,255,0.1);
+  }
   `;
 
   // ============================================================
@@ -897,13 +969,19 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       this.root.style.setProperty("--tlg-safe-top", (this.settings.safeTop || 0) + "px");
       this.root.style.setProperty("--tlg-safe-bottom", (this.settings.safeBottom || 0) + "px");
     },
+
+    applyTheme() {
+      if (!this.root) return;
+      const theme = (this.settings && this.settings.theme) || "dark";
+      this.root.setAttribute("data-theme", theme);
+    },
   };
 
   // ============================================================
   // 引擎：四张表、循环状态、回合三段式
   // ============================================================
   const Engine = {
-    async initState(mode, userPersona, charList, task, baseWorldSetting, baseSeed, style, standingOrders) {
+    async initState(mode, userPersona, charList, task, baseWorldSetting, baseSeed, style, standingOrders, person, openingScene) {
       const state = {
         id: uid(),
         mode,
@@ -916,10 +994,12 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         deathCount: 0,
         baseWorldSetting,
         baseScenarioSeed: baseSeed,
+        openingScene: openingScene || "", // 开场序幕（第一回合显示）
+        person: person || "第三人称", // 主 API 正文人称
         userPersonaId: userPersona && userPersona.id,
         charIds: (charList || []).map(c => c.id),
         task,
-        memoryTable: [], // 本次循环记忆表，回溯清空
+        memoryTable: [], // 本次循环记忆表，回溯清空。每条记忆含 id 字段（前端生成）
         locationTable: [], // 地点表，回溯保留
         timeTable: { currentTime: "" }, // 时间表，回溯重置
         characterTable: {}, // 人物表 { charId: { name, loopInteraction, crossLoopObservation, present } }
@@ -927,7 +1007,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         clueTable: [], // 线索表，回溯保留
         deathTable: [], // 死亡表，回溯保留
         rewindTable: [], // 回溯表，回溯保留
-        prevTurns: [], // 前两回合 { userInput, modelOutput }
+        prevTurns: [], // 前两回合 { userInput, modelOutput（完整原始输出） }
         hiddenHint: "", // 隐藏条件提示
         style: style || "", // 文风
         standingOrders: Array.isArray(standingOrders) ? standingOrders : [], // 常驻指令（字符串数组）
@@ -935,14 +1015,14 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         lastInjects: null, // 上一次主 API 的 injects 快照（供 rerollMain 使用）
         createdAt: Date.now(),
       };
-      // 初始化人物表
+      // 初始化人物表（charList 里的所有 char 默认在场）
       (charList || []).forEach(c => {
         state.characterTable[c.id] = {
           name: c.name || c.handle,
           handle: c.handle,
           loopInteraction: "",
           crossLoopObservation: "",
-          present: false,
+          present: true,
           isCore: true,
         };
       });
@@ -1036,10 +1116,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       state.memoryTable = [];
       // 时间表重置
       state.timeTable = { currentTime: state.loopStartPoint || "" };
-      // 人物表：本次循环交互重置，跨循环观察保留
+      // 人物表：本次循环交互重置，跨循环观察保留；charList 里的 char 默认仍在场
       for (const id in state.characterTable) {
         state.characterTable[id].loopInteraction = "";
-        state.characterTable[id].present = false;
+        state.characterTable[id].present = true;
       }
       // 前两回合清空
       state.prevTurns = [];
@@ -1058,6 +1138,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       const summary = await API.callSub2ForJSON(summaryMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
 
       if (summary.memoryEntry) {
+        summary.memoryEntry.id = uid();
         state.memoryTable.push(summary.memoryEntry);
       }
       if (summary.newLocation) {
@@ -1109,24 +1190,22 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       return summary;
     },
 
-    // 副2-判定：判死亡 + 判破局，返回 { death, loopEndMet }
-    async applyJudge(state, modelOutput, roche) {
-      const charList = await this.getCharList(state, roche);
-      const presentChars = charList.filter(c => state.characterTable[c.id] && state.characterTable[c.id].present);
-      const location = state.locationTable[state.locationTable.length - 1] || "";
-      const time = state.timeTable.currentTime || "";
-      const judgeMessages = Prompts.sub2Judge(modelOutput, state, state.mode, location, time, presentChars);
-      const judge = await API.callSub2ForJSON(judgeMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
-      return judge;
+    // 从主 API 输出解析判定 JSON
+    // 主 API 自判格式：【判定】\n{"death":{"died":false,"cause":"","details":""},"loopEndMet":false}
+    _parseJudgeFromOutput(modelOutput) {
+      const parsed = UI.parseJudge(modelOutput);
+      if (parsed) return parsed;
+      // 默认值：不死亡，未破局
+      return { death: { died: false, cause: "", details: "" }, loopEndMet: false };
     },
 
-    // 新流程：副2-总结（滞后）→ 副1 → 主 → 副2-判定（立即）
+    // 新流程：副2-总结（滞后）→ 副1（合并：种子+检索） → 主（自判） → 死亡/破局处理
     // a. 若 pendingMainOutput 非空：先调用 副2-总结 处理上一回合的输出
-    // b. 副1 → 主（生成本回合种子 + 推剧情）
-    // c. 副2-判定（判死亡+破局）
-    // d. 死亡：记录死亡表 + 总结一次 + rewindLoop；破局：总结一次 + 标记
-    // e. 否则：设置 pendingMainOutput，等待下一回合总结
-    async runTurn(state, userInput, usedClues, roche) {
+    // b. 第一回合（turnNumber===1 且 prevTurns 为空）跳过副1，用 baseScenarioSeed 作为种子
+    // c. 否则调用 副1（sub1Turn）一次性返回 {seed, recallMemoryIds}，从 memoryTable 按 id 取原文
+    // d. 主 API（流式可选）输出含思考/正文/选项/判定
+    // e. 解析判定，处理死亡/破局
+    async runTurn(state, userInput, usedClues, roche, onMainChunk) {
       // a. 处理上一回合的滞后总结
       if (state.pendingMainOutput) {
         try {
@@ -1137,41 +1216,52 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         state.pendingMainOutput = "";
       }
 
-      // b. 副1 → 主
+      // b/c. 副1 → 主
       const charList = await this.getCharList(state, roche);
       const presentChars = charList.filter(c => state.characterTable[c.id] && state.characterTable[c.id].present);
       const location = state.locationTable[state.locationTable.length - 1] || "";
       const time = state.timeTable.currentTime || "";
 
-      const seedMessages = Prompts.sub1Seed(
-        userInput,
-        usedClues,
-        state.crossLoopMemory,
-        state.baseWorldSetting,
-        state.baseScenarioSeed,
-        location,
-        time,
-        presentChars,
-        state.mode,
-        state.loopNumber
-      );
-      const turnSeed = await API.callWithRetry("sub1", seedMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
-
-      // 副1：检索本次循环记忆（8-15 条）
-      const recallMessages = Prompts.sub1Recall(state.memoryTable, userInput, state.memoryTable.length);
-      let loopSummary = [];
-      try {
-        const recallText = await API.callWithRetry("sub1", recallMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
-        const parsed = API._tryParseJSON(recallText) || API._tryParseJSON("[" + recallText + "]");
-        if (Array.isArray(parsed)) loopSummary = parsed;
-      } catch (e) {
-        loopSummary = state.memoryTable.map(m => m.summary || "");
+      let turnSeed = "";
+      let recalledMemories = [];
+      const isFirstTurn = state.turnNumber === 1 && state.prevTurns.length === 0;
+      if (isFirstTurn) {
+        // 第一回合：跳过副1，用 baseScenarioSeed 作为种子，无记忆可检索
+        turnSeed = state.baseScenarioSeed || "";
+      } else {
+        const sub1Messages = Prompts.sub1Turn(
+          userInput,
+          usedClues,
+          state.crossLoopMemory,
+          state.baseWorldSetting,
+          state.baseScenarioSeed,
+          state.memoryTable,
+          location,
+          time,
+          presentChars,
+          state.mode,
+          state.loopNumber
+        );
+        try {
+          const sub1Result = await API.callSub1ForJSON(sub1Messages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
+          turnSeed = sub1Result.seed || "";
+          const ids = Array.isArray(sub1Result.recallMemoryIds) ? sub1Result.recallMemoryIds : [];
+          // 按 id 从 memoryTable 取原文，跳过不存在的 id（幻觉处理）
+          recalledMemories = ids
+            .map(id => state.memoryTable.find(m => m.id === id))
+            .filter(m => m && m.summary)
+            .map(m => m.summary);
+        } catch (e) {
+          // 副1 失败：降级用基础种子，无检索记忆
+          turnSeed = state.baseScenarioSeed || "";
+        }
       }
 
       const injects = {
         baseWorldSetting: state.baseWorldSetting,
         turnSeed,
         style: state.style || "",
+        person: state.person || "第三人称",
         userPersona: await this.getUserPersonaText(state, roche),
         charProfiles: presentChars,
         charDetails: presentChars.map(c => ({
@@ -1179,8 +1269,8 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           handle: c.handle,
           detailMemory: (state.characterTable[c.id] && (state.characterTable[c.id].loopInteraction + "\n" + state.characterTable[c.id].crossLoopObservation)) || "",
         })),
-        loopSummary,
-        prevTurns: state.prevTurns.slice(-2),
+        recalledMemories,
+        prevTurns: state.prevTurns.slice(-2).map(t => ({ userInput: t.userInput, modelOutput: UI.parseBody(t.modelOutput) })),
         userStats: {},
         standingOrders: state.standingOrders || [],
         modeRules: state.loopEndCondition ? "破局条件：" + state.loopEndCondition : "（隐藏条件）",
@@ -1190,12 +1280,18 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       state.lastInjects = injects;
 
       const mainMessages = Prompts.mainNarrate(injects);
-      const modelOutput = await API.call("main", mainMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
+      const settings = App.settings || DEFAULT_SETTINGS;
+      let modelOutput;
+      if (settings.streamEnabled) {
+        modelOutput = await API.callStream("main", mainMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber }, onMainChunk);
+      } else {
+        modelOutput = await API.call("main", mainMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
+      }
 
-      // c. 副2-判定（立即，只判死亡+破局）
-      const judge = await this.applyJudge(state, modelOutput, roche);
+      // d. 从主 API 输出解析判定
+      const judge = this._parseJudgeFromOutput(modelOutput);
 
-      // d. 死亡 / 破局处理
+      // e. 死亡 / 破局处理
       if (judge.death && judge.death.died) {
         state.deathTable.push({
           loopNumber: state.loopNumber,
@@ -1232,7 +1328,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         return { modelOutput, judge, state, broke: true };
       }
 
-      // e. 既未死亡也未破局：设置 pendingMainOutput，等待下一回合开始时总结
+      // 既未死亡也未破局：设置 pendingMainOutput，等待下一回合开始时总结
       state.prevTurns.push({ userInput, modelOutput });
       if (state.prevTurns.length > 2) state.prevTurns.shift();
       state.pendingMainOutput = modelOutput;
@@ -1244,18 +1340,24 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     },
 
     // 重 roll 主 API：用与上一次相同的 injects（同一回合种子和注入）重新调用主 API，
-    // 然后立即调用 副2-判定。不调用 副2-总结。更新 state.pendingMainOutput 为新输出。
+    // 然后从主 API 输出解析判定。不调用 副1，不调用 副2-总结。
     // 若判定死亡/破局则按 runTurn 同样逻辑处理（回溯/结局）。
-    async rerollMain(state, userInput, usedClues, roche) {
+    async rerollMain(state, userInput, usedClues, roche, onMainChunk) {
       if (!state.lastInjects) {
         throw new Error("无可重新生成的回合");
       }
       const injects = state.lastInjects;
       const mainMessages = Prompts.mainNarrate(injects);
-      const modelOutput = await API.call("main", mainMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
+      const settings = App.settings || DEFAULT_SETTINGS;
+      let modelOutput;
+      if (settings.streamEnabled) {
+        modelOutput = await API.callStream("main", mainMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber }, onMainChunk);
+      } else {
+        modelOutput = await API.call("main", mainMessages, { loopNumber: state.loopNumber, turnNumber: state.turnNumber });
+      }
 
-      // 立即调用 副2-判定
-      const judge = await this.applyJudge(state, modelOutput, roche);
+      // 从主 API 输出解析判定
+      const judge = this._parseJudgeFromOutput(modelOutput);
 
       // 死亡处理
       if (judge.death && judge.death.died) {
@@ -1349,6 +1451,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       const { route } = App;
       const root = App.root;
       if (!root) return;
+      App.applyTheme();
       root.replaceChildren();
 
       // 顶栏
@@ -1536,6 +1639,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         worldview: "",
         style: "",
         standingOrders: [],
+        person: "第三人称", // 默认第三人称
       };
 
       // user 人设选择
@@ -1549,6 +1653,23 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       const charBox = el("div", { class: "tlg-mb-16" });
       const charCheckboxes = [];
       wrap.appendChild(charBox);
+
+      // 人称选择
+      wrap.appendChild(el("div", { class: "tlg-label" }, "人称"));
+      const personRow = el("div", { class: "tlg-row tlg-gap-8 tlg-mb-16" });
+      const personThird = el("label", { class: "tlg-card", style: "display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;flex:1;" },
+        el("input", { type: "radio", name: "tlg-person", value: "第三人称", checked: true, style: "width:auto;" }),
+        el("span", null, "第三人称")
+      );
+      const personSecond = el("label", { class: "tlg-card", style: "display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;flex:1;" },
+        el("input", { type: "radio", name: "tlg-person", value: "第二人称", style: "width:auto;" }),
+        el("span", null, "第二人称")
+      );
+      personThird.querySelector("input").addEventListener("change", (e) => { if (e.target.checked) state.person = "第三人称"; });
+      personSecond.querySelector("input").addEventListener("change", (e) => { if (e.target.checked) state.person = "第二人称"; });
+      personRow.appendChild(personThird);
+      personRow.appendChild(personSecond);
+      wrap.appendChild(personRow);
 
       // 任务（土拨鼠/明日边缘可选）
       if (mode !== MODE.HAPPY_DEATH) {
@@ -1653,16 +1774,30 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         createBtn.disabled = true;
         createBtn.textContent = "生成世界设定中...";
         try {
-          // 1. 主 API 生成基础世界设定
-          const worldMessages = Prompts.mainCreateWorld(mode, state.userPersona && (state.userPersona.persona || state.userPersona.bio), state.charList, state.task, state.worldview);
-          const baseWorldSetting = await API.call("main", worldMessages, {});
+          // 1. 主 API 生成基础世界设定 + 开场序幕（一次性输出两部分）
+          const worldMessages = Prompts.mainCreateWorld(mode, state.userPersona && (state.userPersona.persona || state.userPersona.bio), state.charList, state.task, state.worldview, state.person);
+          const worldOutput = await API.call("main", worldMessages, {});
+
+          // 解析【世界设定】和【开场序幕】
+          let baseWorldSetting = worldOutput;
+          let openingScene = "";
+          const wsIdx = worldOutput.indexOf("【世界设定】");
+          const osIdx = worldOutput.indexOf("【开场序幕】");
+          if (wsIdx >= 0 && osIdx >= 0 && osIdx > wsIdx) {
+            baseWorldSetting = worldOutput.slice(wsIdx + "【世界设定】".length, osIdx).trim();
+            openingScene = worldOutput.slice(osIdx + "【开场序幕】".length).trim();
+          } else if (wsIdx >= 0) {
+            baseWorldSetting = worldOutput.slice(wsIdx + "【世界设定】".length).trim();
+          } else if (osIdx >= 0) {
+            openingScene = worldOutput.slice(osIdx + "【开场序幕】".length).trim();
+          }
 
           // 2. 副 API 生成基础剧本种子
           const seedMessages = Prompts.subCreateSeed(baseWorldSetting, mode, state.charList);
           const baseSeed = await API.callWithRetry("sub1", seedMessages, {});
 
-          // 3. 初始化状态
-          App.state = await Engine.initState(mode, state.userPersona, state.charList, state.task, baseWorldSetting, baseSeed, state.style, state.standingOrders);
+          // 3. 初始化状态（含 person 与 openingScene）
+          App.state = await Engine.initState(mode, state.userPersona, state.charList, state.task, baseWorldSetting, baseSeed, state.style, state.standingOrders, state.person, openingScene);
           App.state.loopStartPoint = "循环起点";
           // 写入 saves 数组（初始存档）
           await Engine.saveCurrent(App.state);
@@ -1688,9 +1823,16 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         return wrap;
       }
 
+      // 判断是否为第一回合（开场序幕阶段）
+      const isFirstTurn = state.turnNumber === 1 && state.prevTurns.length === 0;
+
       // 剧情显示区
       const storyArea = el("div", { class: "tlg-prose tlg-mb-16", id: "tlg-story" });
-      storyArea.textContent = "输入你的行动开始剧情...";
+      if (isFirstTurn && state.openingScene) {
+        storyArea.textContent = state.openingScene;
+      } else {
+        storyArea.textContent = "输入你的行动开始剧情...";
+      }
       wrap.appendChild(storyArea);
 
       // 选项区
@@ -1727,14 +1869,27 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       // 记录当前回合的输入与线索（供 reroll 使用）
       let lastTurnInput = null;
 
-      // 渲染主 API 输出（正文 + 选项）
+      // 渲染主 API 输出（正文 + 选项 + 思维链折叠）
       const renderOutput = (modelOutput) => {
-        const parts = this.parseModelOutput(modelOutput);
-        storyArea.innerHTML = "";
-        storyArea.appendChild(document.createTextNode(parts.body));
-        optionsArea.replaceChildren();
-        // 解析 【选项】 部分
+        const body = this.parseBody(modelOutput);
+        const thinking = this.parseThinking(modelOutput);
         const options = this.parseOptions(modelOutput);
+        storyArea.innerHTML = "";
+        // 思维链默认折叠
+        if (thinking) {
+          const toggle = el("div", { class: "tlg-thinking-toggle" }, "[显示思考]");
+          let expanded = false;
+          const thinkingBody = el("div", { class: "tlg-thinking-body", style: "display:none;" }, thinking);
+          toggle.addEventListener("click", () => {
+            expanded = !expanded;
+            toggle.textContent = expanded ? "[隐藏思考]" : "[显示思考]";
+            thinkingBody.style.display = expanded ? "block" : "none";
+          });
+          storyArea.appendChild(toggle);
+          storyArea.appendChild(thinkingBody);
+        }
+        storyArea.appendChild(document.createTextNode(body));
+        optionsArea.replaceChildren();
         if (options && options.length) {
           options.forEach(opt => {
             const btn = el("button", { class: "tlg-option-btn", onclick: () => {
@@ -1774,8 +1929,13 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         const capturedAction = action;
         const capturedClues = usedClues.slice();
 
+        // 流式回调：实时显示完整原始输出（含【思考】等标记），完成后由 renderOutput 分离
+        const onMainChunk = (chunk, fullText) => {
+          storyArea.textContent = fullText;
+        };
+
         try {
-          const result = await Engine.runTurn(state, action, capturedClues, App.roche);
+          const result = await Engine.runTurn(state, action, capturedClues, App.roche, onMainChunk);
           renderOutput(result.modelOutput);
           usedClues.length = 0;
           window.__tlgUsedClues = [];
@@ -1834,8 +1994,11 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         rerollBtn.innerHTML = "重新生成中...";
         storyArea.textContent = "正在重新生成...";
         optionsArea.replaceChildren();
+        const onMainChunk = (chunk, fullText) => {
+          storyArea.textContent = fullText;
+        };
         try {
-          const result = await Engine.rerollMain(state, lastTurnInput.action, lastTurnInput.usedClues, App.roche);
+          const result = await Engine.rerollMain(state, lastTurnInput.action, lastTurnInput.usedClues, App.roche, onMainChunk);
           renderOutput(result.modelOutput);
 
           if (result.died) {
@@ -1885,10 +2048,11 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     parseModelOutput(text) {
       const parts = { body: text, options: [] };
       if (!text) return parts;
-      // 优先识别 【选项】 标记
+      // 优先识别 【正文】 / 【选项】 标记
+      const bodyStart = text.indexOf("【正文】");
       const optIdx = text.indexOf("【选项】");
       if (optIdx >= 0) {
-        parts.body = text.slice(0, optIdx).trim();
+        parts.body = (bodyStart >= 0 ? text.slice(bodyStart + "【正文】".length, optIdx) : text.slice(0, optIdx)).trim();
         return parts;
       }
       // 兼容 --- 分隔
@@ -1907,12 +2071,55 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       return parts;
     },
 
-    // 解析主 API 输出中的【选项】部分，返回选项数组
+    // 解析主 API 输出中的【思考】部分（在【思考】和【正文】之间）
+    parseThinking(text) {
+      if (!text) return "";
+      const start = text.indexOf("【思考】");
+      if (start < 0) return "";
+      const bodyStart = text.indexOf("【正文】", start);
+      if (bodyStart < 0) return "";
+      return text.slice(start + "【思考】".length, bodyStart).trim();
+    },
+
+    // 解析主 API 输出中的【正文】部分（在【正文】和【选项】之间）
+    parseBody(text) {
+      if (!text) return "";
+      const start = text.indexOf("【正文】");
+      if (start < 0) {
+        // 兼容无标记的旧格式：取到【选项】或【判定】之前
+        const optIdx = text.indexOf("【选项】");
+        const judgeIdx = text.indexOf("【判定】");
+        let end = text.length;
+        if (optIdx >= 0) end = optIdx;
+        if (judgeIdx >= 0 && judgeIdx < end) end = judgeIdx;
+        return text.slice(0, end).trim();
+      }
+      const optIdx = text.indexOf("【选项】", start);
+      const judgeIdx = text.indexOf("【判定】", start);
+      let end = text.length;
+      if (optIdx >= 0) end = optIdx;
+      if (judgeIdx >= 0 && judgeIdx < end) end = judgeIdx;
+      return text.slice(start + "【正文】".length, end).trim();
+    },
+
+    // 解析主 API 输出中的【判定】部分，返回 JSON 对象；解析失败返回 null
+    parseJudge(text) {
+      if (!text) return null;
+      const idx = text.indexOf("【判定】");
+      if (idx < 0) return null;
+      const judgeText = text.slice(idx + "【判定】".length);
+      return API._tryParseJSON(judgeText);
+    },
+
+    // 解析主 API 输出中的【选项】部分，返回选项数组（在【选项】和【判定】之间）
     parseOptions(text) {
       if (!text) return [];
       const idx = text.indexOf("【选项】");
       if (idx < 0) return [];
-      const optText = text.slice(idx + "【选项】".length);
+      let optText = text.slice(idx + "【选项】".length);
+      // 在【判定】处截断
+      const judgeIdx = optText.indexOf("【判定】");
+      if (judgeIdx >= 0) optText = optText.slice(0, judgeIdx);
       const lines = optText.split("\n").map(l => l.trim()).filter(Boolean);
       const opts = [];
       for (const line of lines) {
@@ -2075,8 +2282,11 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         } else {
           state.memoryTable.forEach(m => {
             body.appendChild(el("div", { class: "tlg-card" },
-              el("div", { class: "tlg-faded tlg-mb-8" }, (m.time || "") + " · " + (m.location || "")),
-              el("div", null, m.summary || ""),
+              el("div", { class: "tlg-row", style: "justify-content:space-between;" },
+                el("span", { class: "tlg-faded" }, (m.time || "") + " · " + (m.location || "")),
+                el("span", { class: "tlg-tag" }, "id: " + (m.id || "(无)"))
+              ),
+              el("div", { class: "tlg-mt-8" }, m.summary || ""),
               m.characters && m.characters.length ? el("div", { class: "tlg-faded tlg-mt-8" }, "涉及：" + m.characters.join("、")) : null
             ));
           });
@@ -2331,6 +2541,41 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         el("button", { class: "tlg-btn-ghost tlg-mt-8", onclick: () => App.navigate("logs") }, "查看日志")
       ));
 
+      // 主题切换（日间 / 夜间）
+      wrap.appendChild(el("div", { class: "tlg-card" },
+        el("div", { class: "tlg-label" }, "侧边栏主题"),
+        el("div", { class: "tlg-row", style: "justify-content:space-between;" },
+          el("span", { class: "tlg-faded" }, "悬浮球面板与菜单的配色"),
+          el("div", { class: "tlg-row tlg-gap-8" },
+            el("button", { class: "tlg-btn-ghost", onclick: async () => {
+              s.theme = "light";
+              await App.saveSettings();
+              App.applyTheme();
+              this.render();
+            } }, s.theme === "light" ? "[日间]" : "日间"),
+            el("button", { class: "tlg-btn-ghost", onclick: async () => {
+              s.theme = "dark";
+              await App.saveSettings();
+              App.applyTheme();
+              this.render();
+            } }, s.theme === "dark" ? "[夜间]" : "夜间")
+          )
+        )
+      ));
+
+      // 流式生成开关
+      wrap.appendChild(el("div", { class: "tlg-card" },
+        el("div", { class: "tlg-label" }, "主 API 流式生成"),
+        el("div", { class: "tlg-row", style: "justify-content:space-between;" },
+          el("span", { class: "tlg-faded" }, "实时显示生成中的文本，关闭则等完整输出。流式失败会自动降级。"),
+          el("button", { class: "tlg-btn-ghost", onclick: async () => {
+            s.streamEnabled = !s.streamEnabled;
+            await App.saveSettings();
+            this.render();
+          } }, s.streamEnabled ? "已开启" : "已关闭")
+        )
+      ));
+
       // 安全区域（滑块）
       const safeCard = el("div", { class: "tlg-card" });
       safeCard.appendChild(el("div", { class: "tlg-label" }, "顶栏安全区域"));
@@ -2552,6 +2797,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           // 加载设置
           await App.loadSettings();
           App.applySafeArea();
+          App.applyTheme();
 
           // 渲染
           container.appendChild(root);
