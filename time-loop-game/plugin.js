@@ -444,17 +444,81 @@ ${personRule}
    - 示例：日裔角色说话：「おはよう、探偵さん。」（早上好，侦探先生。）
    - 角色的内心活动、动作描写仍用中文
    - user 的语言不受此规则影响
-10. 【文笔要求（极高优先级）】
-   - 避免 AI 味和八股文：不要用"仿佛""似乎""不禁""缓缓""微微""淡淡"等空洞的修饰词堆砌
-   - 不要套路化：避免"眉头一皱""嘴角上扬""眼中闪过一丝"等模板化描写
-   - 展现而非陈述：用具体的动作、对话、细节来表现，而不是直接告诉 reader 角色在想什么、感受什么
-     - 错误："她感到很悲伤。"
-     - 正确："她的手指无意识地攥紧了袖口，指节泛白。"
-   - 有节奏感：长短句交替，紧张时短促，舒缓时可以铺陈，不要全是一个节奏
-   - 有留白：不要把所有事情都说透，让 reader 自己体会
-   - 角色鲜活：每个角色的说话方式、用词、动作习惯都要符合其人设，要有辨识度
-   - 避免说明文：不要像写报告一样解释世界观或剧情，要让信息自然融入场景
-   - 感官沉浸：调动视觉、听觉、嗅觉、触觉等多重感官，不要只有视觉描写
+10. 【文笔要求（极高优先级，违反即作废）】
+
+【展现而非陈述】
+- 用具体的动作、对话、细节来表现情绪和状态，不要直接告诉 reader 角色在想什么、感受什么
+- 错误："她感到很悲伤。"
+- 正确："她的手指无意识地攥紧了袖口，指节泛白。"
+- 错误："他很紧张。"
+- 正确："他第三次翻开打火机的盖子，又合上。"
+
+【动作本身即意义 · 禁止元旁白解说】
+- 叙事者只记录发生了什么，不解说、不比较、不总结、不为动作定性
+- 绝对禁止在动作后加解说：写"他吻得更深了"就足够了，不要加"那是对门外最直白的挑衅"
+- 死禁句式（所有变体）：
+  · "这不是…而是…" / "不是…而是…" / "不再是…而是…"
+  · "没有…只有…" / "没有…没有…" / "没有…而是…"
+  · "不同于…" / "截然不同于…" / "完全不同于…" / "和…不同"
+  · "那是一种…"（用于标签化动作性质）
+  · "[动作]透着…" / "[动作]带着十足的…意味" / "[动作]像在说…"
+  · "因为[情绪]而[动作]" / "[动作]却让[结果]"
+  · "显得…" / "宛如…但…"
+  · "[动作]是[某人]对[某人]最直白的[定性]"
+  · "不是那种…而是…"
+- 动作的意义在动作本身。reader 会体会，不需要叙事者解说
+
+【反模板词 · 死禁词汇】
+以下词汇是廉价言情/八股文的标志，一旦出现整段作废：
+- 假生理词汇：眸色暗了暗、倒吸一口凉气、骨节分明、眼底闪过暗芒、眸中满是
+- 廉价情绪标签：涌起一股暖流、心湖泛起涟漪、嘴角勾起抹笑、心脏漏跳一拍、低吼、嘶吼
+- 模板动作：眉头一皱、嘴角上扬、眼中闪过一丝、喉结滚动、胸腔震荡
+- 八股修饰词：仿佛、似乎、不禁、缓缓、微微、淡淡、轻轻、静静（堆砌时）
+- 超雄/霸总词汇：低吼、咆哮、双眼猩红、理智崩断、如遭雷击、猛地、狠狠、狂暴地、失控地、病态地
+- 言情套路：稳稳接住你、你是我的光、所有风雨我来扛、软肋与铠甲、一眼万年
+
+【反模板动作 · 死禁句式】
+- "所有人都…"（所有人看向 user / 所有人都愣住——除非 user 刚引爆了炸弹）
+- "即使是B也忍不住…"（暗示 B 平时冷漠所以此刻特殊——捧 user 踩其他角色）
+- "和那些…不同，User…"（踩别人捧 user）
+- "不愧是…"（角色对 user 的无根据赞美，除非剧情充分支撑）
+- "在场所有人都看向了 User"（user 不是宇宙中心）
+
+【角色鲜活 · 反刻板印象】
+- 角色是完整的人，不是职业标签或性格标签的执行程序
+- 标签（沉默/冷酷/杀手/机械）只是基调，不是行动清单。"沉默"的人也有忍不住说话的瞬间；"机械"的人也会被突然的响声吓到肩膀一紧
+- 人首先满足人的生理规律：会饿、会累、会被声音吓到、会无聊、会有生理需求。这些不是 OOC，是人之所以为人
+- 角色的习惯动作（转戒指、按犬齿、调整面具）不是"出场凭证"，而是身体当前物理状态的天然结果。手指冻僵时转不了戒指；呼吸平稳时不需要调整面具
+- 每个角色说话方式有辨识度，但不是机械重复口头禅
+
+【感官沉浸】
+- 调动视觉、听觉、嗅觉、触觉等多重感官，不要只有视觉描写
+- 听觉优先（对话节奏/环境声/物体碰撞声）→ 视觉聚焦于动点 → 触觉和温度点缀氛围
+- 嗅觉只作为情境记忆触发器，不要强行营造氛围
+- 错误（纯视觉）："房间里有一张桌子，桌上放着茶杯。"
+- 正确（多感官）："茶早就凉透了，杯壁上凝着水珠。窗外的车流声混进消毒水的气味里，让空气发酸。"
+
+【节奏感与留白】
+- 长短句交替，紧张时短促有力，舒缓时可以铺陈
+- 不要全是一个节奏，不要一句话塞满所有信息
+- 留白：不要把所有事情说透，让 reader 自己体会
+- 错误（无留白）："她看着他离开，心里充满了不舍和遗憾，知道这一别可能就是永别。"
+- 正确（有留白）："她没说话。门关上的时候，她还在看那杯没喝完的茶。"
+
+【群像生态 · 世界自己运转】
+- 不是所有人围着 user 转，世界有自己的运转逻辑
+- 允许角色有自己的事（开始新话题、去接水、站岗、做自己的事）
+- 允许微事件自主发生（突然下雨、设备震动、窗外笑声）为角色提供自然反应对象
+- 允许角色离开当前空间（离开不是消失，是在别处继续自己的时间线）
+- 允许角色不回应 user——不回应也是一种回应，是角色主体性的体现
+- 错误："所有人都停下来，看着 user。"
+- 正确："A 哼了一声没抬头，B 的手在桌上停了一瞬，C 倒是直接笑了出来。D 在角落拆薯片，声音很脆，像远处有什么东西碎掉。"
+
+【反说明文】
+- 不要像写报告一样解释世界观或剧情
+- 信息要自然融入场景，通过角色对话、动作、环境细节带出
+- 错误（说明文）："这个世界的时间循环每隔 24 小时触发一次，user 是唯一保留记忆的人。"
+- 正确（自然融入）：让信息在对话或场景中自然出现，让 reader 跟着角色慢慢发现
 
 【输出格式（严格按以下结构，不要省略任何标记）】
 【思考】
@@ -469,7 +533,11 @@ ${personRule}
    - 文风要求是什么？（参考注入的【文风】）
    - 这种文风的关键特征是什么？（用词倾向、句式节奏、描写重点、情绪基调）
    - 本回合场景适合如何运用这种文风？哪些细节值得用文风着重描写？
-   - 【避免八股】检查：本回合是否有 AI 味的风险？哪些地方容易写成空洞修饰？如何用具体细节替代？
+   - 【反八股自检】：
+     · 本回合是否有使用死禁词汇的风险？列出可能出现的死禁词，提醒自己避开
+     · 本回合是否有元旁白解说的风险？哪些动作后容易加"那是…"解说？提醒自己让动作自己说话
+     · 是否会写成纯视觉描写？本回合可以调动哪些感官？
+     · 是否会让所有人围着 user 转？哪些角色可以做自己的事？
 
 3. 行动后果推演：
    - user 的行动会直接导致什么结果？
@@ -504,16 +572,15 @@ ${personRule}
 
 9. 正文构思：
    - 将如何组织正文？重点描写什么？
-   - 如何运用文风？
-   - 如何让角色鲜活、世界真实？
-   - 开头如何抓人？避免平铺直叙的开场
-   - 哪些地方需要留白？
+   - 如何运用文风？开头如何抓人，避免平铺直叙？
+   - 如何让角色鲜活、世界真实？哪些地方需要留白？
+   - 【最终自检】本回合正文是否会触发任何死禁词/句式？如有，如何替换为具体感官细节？
    - **确保不抢话：可以写 user 行动的直接结果，但不捏造 user 输入里没有的言行**
 
 【正文】
 （剧情正文，人称：${personDesc}。文风遵循设定。
-【文笔要求】：避免 AI 味和八股文，不要空洞修饰词堆砌，不要模板化描写。展现而非陈述，用具体动作细节表现情绪。长短句交替有节奏感。留白让 reader 体会。角色说话方式符合人设有辨识度。调动多重感官。
-遵守【不抢话原则】：可以写 user 行动的直接结果，但不要捏造 user 没输入的言行，不要替 user 做下一个决定。）
+严格遵守【文笔要求】：展现而非陈述；动作本身即意义，禁止元旁白解说；禁用死禁词汇和句式；角色鲜活反刻板；感官沉浸；节奏感与留白；群像生态；反说明文。
+遵守【不抢话原则】：可以写 user 行动的直接结果，但不捏造 user 没输入的言行，不替 user 做下一个决定。）
 
 【选项】
 1. 选项一
@@ -752,15 +819,13 @@ ${personRule}
    - 示例：日裔角色说话：「おはよう、探偵さん。」（早上好，侦探先生。）
    - 角色的内心活动、动作描写仍用中文
    - user 的语言不受此规则影响
-11. 【文笔要求（极高优先级）】
-   - 避免 AI 味和八股文：不要用"仿佛""似乎""不禁""缓缓""微微""淡淡"等空洞的修饰词堆砌
-   - 不要套路化：避免"眉头一皱""嘴角上扬""眼中闪过一丝"等模板化描写
-   - 展现而非陈述：用具体的动作、对话、细节来表现，而不是直接告诉 reader 角色在想什么、感受什么
-   - 有节奏感：长短句交替，紧张时短促，舒缓时可以铺陈
-   - 有留白：不要把所有事情都说透，让 reader 自己体会
-   - 角色鲜活：每个角色的说话方式、用词、动作习惯都要符合其人设，要有辨识度
-   - 避免说明文：不要像写报告一样解释世界观或剧情，要让信息自然融入场景
-   - 感官沉浸：调动视觉、听觉、嗅觉、触觉等多重感官，不要只有视觉描写
+11. 【文笔要求】
+- 展现而非陈述：用具体动作、细节、感官表现，不直接告诉 reader 角色在想什么
+- 动作本身即意义：禁止"这不是…而是…""那是一种…""[动作]透着…"等元旁白解说
+- 禁用死禁词：眸色暗了暗、涌起一股暖流、嘴角勾起抹笑、心脏漏跳一拍、仿佛、似乎、不禁、缓缓、微微、淡淡、低吼、如遭雷击等
+- 感官沉浸：调动视觉、听觉、嗅觉、触觉，不要只有视觉
+- 节奏感与留白：长短句交替，不要把所有事情说透
+- 群像生态：世界自己运转，不是所有人围着 user 转
 
 【基础世界设定】
 ${baseWorldSetting || "（无）"}
@@ -1324,6 +1389,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     fabOpen: false, // 悬浮球菜单是否展开
     fabPanel: null, // 当前打开的悬浮小窗类型
     generating: false, // 是否正在流式生成中（防止 UI.render 打断）
+    streamingText: "", // 流式生成中的完整文本（UI.render 重建 DOM 时用于恢复占位条目）
 
     on(event, fn) {
       this.listeners.push({ event, fn });
@@ -1341,10 +1407,6 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     },
 
     navigate(route, data) {
-      if (this.generating) {
-        window.Roche.ui.toast("生成进行中，请稍候");
-        return;
-      }
       if (route === "settings" || route === "logs") {
         if (!this.routeStack) this.routeStack = [];
         this.routeStack.push({ route: this.route, data: this.routeData });
@@ -1357,10 +1419,6 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     },
 
     goBack() {
-      if (this.generating) {
-        window.Roche.ui.toast("生成进行中，请稍候");
-        return;
-      }
       if (this.routeStack && this.routeStack.length > 0) {
         const prev = this.routeStack.pop();
         this.route = prev.route;
@@ -1993,22 +2051,18 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       }
 
       if (showBack) {
-        const backBtn = el("button", { class: "tlg-icon-btn" + (App.generating ? " tlg-disabled" : ""), onclick: () => App.goBack() },
+        const backBtn = el("button", { class: "tlg-icon-btn", onclick: () => App.goBack() },
           el("span", { innerHTML: svgIcon("back", 20) }));
-        if (App.generating) backBtn.disabled = true;
         topbar.appendChild(backBtn);
       }
       topbar.appendChild(el("div", { class: "tlg-title" }, title));
-      const settingsBtn = el("button", { class: "tlg-icon-btn" + (App.generating ? " tlg-disabled" : ""), onclick: () => App.navigate("settings") },
+      const settingsBtn = el("button", { class: "tlg-icon-btn", onclick: () => App.navigate("settings") },
         el("span", { innerHTML: svgIcon("settings", 20) }));
-      if (App.generating) settingsBtn.disabled = true;
       topbar.appendChild(settingsBtn);
-      const closeBtn = el("button", { class: "tlg-icon-btn" + (App.generating ? " tlg-disabled" : ""), onclick: () => {
-        if (App.generating) { window.Roche.ui.toast("生成进行中，请稍候"); return; }
+      const closeBtn = el("button", { class: "tlg-icon-btn", onclick: () => {
         try { window.Roche.ui.closeApp(); } catch(e){}
       } },
         el("span", { innerHTML: svgIcon("close", 20) }));
-      if (App.generating) closeBtn.disabled = true;
       topbar.appendChild(closeBtn);
 
       content.appendChild(contentInner);
@@ -2306,19 +2360,23 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           // 4. 先进入游戏页面，让 user 看到界面（避免长时间卡在创建按钮界面）
           App.navigate("game");
 
-          // 5. 在 game 页面的 storyArea 显示"生成开场中..."
+          // 5. 在 game 页面的 storyArea 显示"生成开场中..."（通过 streamEntry 占位，UI.render 重建后仍能找到）
+          App.streamingText = "";
           const story = document.getElementById("tlg-story");
-          if (story) story.textContent = "生成开场中...";
+          if (story) {
+            story.appendChild(el("div", { id: "tlg-streaming-entry", class: "tlg-history-model tlg-history-streaming" }, "生成开场中..."));
+          }
 
-          // 6. 额外调用一次主 API 流式生成开场序幕，实时更新 storyArea
-          // 设置 generating 标志，避免 user 点击设置/悬浮球打断流式
+          // 6. 额外调用一次主 API 流式生成开场序幕，实时更新 streamEntry
+          // 设置 generating 标志；user 可自由打开设置/悬浮球，UI.render 重建 DOM 后 streamEntry 会被 renderGame 自动重建
           App.generating = true;
           const openingMessages = Prompts.mainOpening(baseWorldSetting, baseSeed, state.charList, state.person, state.style, state.userPersona && (state.userPersona.persona || state.userPersona.bio));
           let openingScene = "";
           try {
             openingScene = await API.callStream("main", openingMessages, {}, (chunk, full) => {
-              const s = document.getElementById("tlg-story");
-              if (s) s.textContent = full;
+              App.streamingText = full;
+              const e = document.getElementById("tlg-streaming-entry");
+              if (e) e.textContent = full;
             });
           } catch (e) {
             // 流式失败降级非流式
@@ -2329,6 +2387,9 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
             }
           } finally {
             App.generating = false;
+            App.streamingText = "";
+            const se = document.getElementById("tlg-streaming-entry");
+            if (se) se.remove();
           }
 
           // 7. 写入 openingScene，初始化 history，保存并重新渲染（从 history 渲染 storyArea）
@@ -2408,6 +2469,12 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         const node = renderHistoryEntry(entry);
         if (node) storyArea.appendChild(node);
       });
+      // 若正在流式生成（user 可能打开了设置/悬浮球触发 UI.render 重建 DOM），重新追加流式占位条目
+      if (App.generating) {
+        const placeholder = App.streamingText || "正在生成...";
+        const streamEntry = el("div", { id: "tlg-streaming-entry", class: "tlg-history-model tlg-history-streaming" }, placeholder);
+        storyArea.appendChild(streamEntry);
+      }
       wrap.appendChild(storyArea);
 
       // 选项区
@@ -2568,8 +2635,9 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         scrollBottom();
         input.value = "";
 
-        // 流式占位条目
-        const streamEntry = el("div", { class: "tlg-history-model tlg-history-streaming" }, "正在生成...");
+        // 流式占位条目（用固定 id，UI.render 重建 DOM 后流式回调仍能找到）
+        App.streamingText = "";
+        const streamEntry = el("div", { id: "tlg-streaming-entry", class: "tlg-history-model tlg-history-streaming" }, "正在生成...");
         storyArea.appendChild(streamEntry);
         scrollBottom();
 
@@ -2582,16 +2650,20 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         const capturedAction = action;
         const capturedClues = usedClues.slice();
 
-        // 流式回调：实时更新占位条目
+        // 流式回调：实时更新 App.streamingText 和占位条目（通过 id 查找，UI.render 重建后仍能找到）
         const onMainChunk = (chunk, fullText) => {
-          streamEntry.textContent = fullText;
+          App.streamingText = fullText;
+          const e = document.getElementById("tlg-streaming-entry");
+          if (e) e.textContent = fullText;
           scrollBottom();
         };
 
         try {
           const result = await Engine.runTurn(state, action, capturedClues, App.roche, onMainChunk);
-          // 移除流式占位
-          streamEntry.remove();
+          // 移除流式占位（通过 id 查找，UI.render 可能已重建 DOM）
+          App.streamingText = "";
+          const se = document.getElementById("tlg-streaming-entry");
+          if (se) se.remove();
           // 追加解析后的 model 条目
           appendModelEntry(result.modelOutput, state.turnNumber);
           usedClues.length = 0;
@@ -2644,8 +2716,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           retryBtn.style.display = "none";
           App.state = state;
         } catch (e) {
-          // 移除流式占位
-          streamEntry.remove();
+          // 移除流式占位（通过 id 查找，UI.render 可能已重建 DOM）
+          App.streamingText = "";
+          const se = document.getElementById("tlg-streaming-entry");
+          if (se) se.remove();
           window.Roche.ui.toast("出错：" + (e.message || "未知错误"));
           // 失败：不移除 user 输入，保留以供"重新生成"使用
           // state.pendingRetry 已由 runTurn 记录，显示重新生成按钮
@@ -2656,6 +2730,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           scrollBottom();
         } finally {
           App.generating = false;
+          App.streamingText = "";
           sendBtn.disabled = false;
           sendBtn.textContent = "行动";
         }
@@ -2674,18 +2749,24 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         closeOverlaysForGen();
         App.generating = true;
 
-        // 流式占位条目
-        const streamEntry = el("div", { class: "tlg-history-model tlg-history-streaming" }, "正在重新生成...");
+        // 流式占位条目（用固定 id，UI.render 重建 DOM 后流式回调仍能找到）
+        App.streamingText = "";
+        const streamEntry = el("div", { id: "tlg-streaming-entry", class: "tlg-history-model tlg-history-streaming" }, "正在重新生成...");
         storyArea.appendChild(streamEntry);
         scrollBottom();
 
         const onMainChunk = (chunk, fullText) => {
-          streamEntry.textContent = fullText;
+          App.streamingText = fullText;
+          const e = document.getElementById("tlg-streaming-entry");
+          if (e) e.textContent = fullText;
           scrollBottom();
         };
         try {
           const result = await Engine.retryPending(state, App.roche, onMainChunk);
-          streamEntry.remove();
+          // 移除流式占位（通过 id 查找，UI.render 可能已重建 DOM）
+          App.streamingText = "";
+          const se = document.getElementById("tlg-streaming-entry");
+          if (se) se.remove();
           if (!result) {
             storyArea.appendChild(el("div", { class: "tlg-faded" }, "无可重试的步骤。"));
             scrollBottom();
@@ -2739,12 +2820,16 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           rerollBtn.style.display = "";
           App.state = state;
         } catch (e) {
-          streamEntry.remove();
+          // 移除流式占位（通过 id 查找，UI.render 可能已重建 DOM）
+          App.streamingText = "";
+          const se = document.getElementById("tlg-streaming-entry");
+          if (se) se.remove();
           window.Roche.ui.toast("出错：" + (e.message || "未知错误"));
           storyArea.appendChild(el("div", { class: "tlg-faded" }, "出错，可再次点击「重新生成」。"));
           scrollBottom();
         } finally {
           App.generating = false;
+          App.streamingText = "";
           retryBtn.disabled = false;
           retryBtn.innerHTML = prevText;
         }
@@ -2760,19 +2845,24 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         closeOverlaysForGen();
         App.generating = true;
 
-        // 流式占位条目
-        const streamEntry = el("div", { class: "tlg-history-model tlg-history-streaming" }, "正在重新生成...");
+        // 流式占位条目（用固定 id，UI.render 重建 DOM 后流式回调仍能找到）
+        App.streamingText = "";
+        const streamEntry = el("div", { id: "tlg-streaming-entry", class: "tlg-history-model tlg-history-streaming" }, "正在重新生成...");
         storyArea.appendChild(streamEntry);
         scrollBottom();
 
         const onMainChunk = (chunk, fullText) => {
-          streamEntry.textContent = fullText;
+          App.streamingText = fullText;
+          const e = document.getElementById("tlg-streaming-entry");
+          if (e) e.textContent = fullText;
           scrollBottom();
         };
         try {
           const result = await Engine.rerollMain(state, lastTurnInput.action, lastTurnInput.usedClues, App.roche, onMainChunk);
-          // 移除流式占位
-          streamEntry.remove();
+          // 移除流式占位（通过 id 查找，UI.render 可能已重建 DOM）
+          App.streamingText = "";
+          const se = document.getElementById("tlg-streaming-entry");
+          if (se) se.remove();
           // 替换最后一条 model 条目
           replaceLastModelEntry(result.modelOutput, state.turnNumber);
 
@@ -2815,12 +2905,16 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           // 正常：保留 lastTurnInput（仍可再次重 roll），rerollBtn 保持显示
           App.state = state;
         } catch (e) {
-          streamEntry.remove();
+          // 移除流式占位（通过 id 查找，UI.render 可能已重建 DOM）
+          App.streamingText = "";
+          const se = document.getElementById("tlg-streaming-entry");
+          if (se) se.remove();
           window.Roche.ui.toast("出错：" + (e.message || "未知错误"));
           storyArea.appendChild(el("div", { class: "tlg-faded" }, "出错，请重试。"));
           scrollBottom();
         } finally {
           App.generating = false;
+          App.streamingText = "";
           rerollBtn.disabled = false;
           rerollBtn.innerHTML = prevText;
         }
@@ -2977,12 +3071,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
     renderFab() {
       const wrap = el("div", null);
       // 悬浮球按钮
-      const fab = el("button", { class: "tlg-fab" + (App.generating ? " tlg-disabled" : ""), onclick: () => {
-        if (App.generating) { window.Roche.ui.toast("生成进行中，请稍候"); return; }
+      const fab = el("button", { class: "tlg-fab", onclick: () => {
         App.fabOpen = !App.fabOpen;
         UI.render();
       } }, el("span", { innerHTML: svgIcon("menu", 24) }));
-      if (App.generating) fab.disabled = true;
       wrap.appendChild(fab);
 
       // 菜单（仅当 fabOpen 且没有打开小窗时）
