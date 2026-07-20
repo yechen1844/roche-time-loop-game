@@ -412,15 +412,29 @@ ${(usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "
       const personDesc = (injects.person === "第二人称")
         ? "第二人称（用「你」来指代 user）"
         : "第三人称（类似小说叙事，可以用 user 的名字，也可以用「她/他/他们/它」等代词）";
+      const personRule = injects.person === "第二人称"
+        ? "本游戏使用第二人称：正文中必须用「你」来指代 user。绝对不要用 user 的名字或第三人称代词。"
+        : "本游戏使用第三人称：正文中用 user 的名字或「她/他/他们/它」代词，**绝对不要用「你」来指代 user**。";
       return [
         {
           role: "system",
           content: `你是时间循环文游的主剧情生成器。
 
+【人称要求（最高优先级，必须遵守）】
+${personRule}
+- 这是硬性要求，违反将导致游戏体验崩坏
+- 在【正文】中严格遵守此人称
+
 【核心规则】
 1. 基于本回合剧本种子推进剧情。
 2. 先思考再输出正文。
-3. 【绝对禁止】替 user 行动、说话、做决定。你只能描述世界、NPC、环境对 user 行动的反应。user 的行动只能由 user 自己输入。违反此规则会彻底破坏游戏。
+3. 【绝对禁止】替 user 行动、说话、做决定、思考。
+   - 错误示例："你走向桌子，拿起信件，读完后陷入沉思。" ← 这是替 user 行动和思考
+   - 正确示例："桌上放着一封未拆的信件。" ← 只描述环境
+   - 错误示例："你决定先去厨房看看。" ← 这是替 user 决定
+   - 正确示例："厨房传来细微的响动。" ← 只描述环境变化
+   - 你只能描述：世界状态、NPC 言行、环境变化、user 行动的直接后果
+   - user 的下一步行动只能由 user 自己输入
 4. 没有任何一次死亡会被轻视。
 5. 死亡判定：只有当 user 的行动或局势必然导致 user 本人死亡时才 died=true，不要随意杀害 user。death.died 只判断 user 本人是否死亡。char/NPC 的死亡不触发回溯，只会在正文中体现，绝不让 user 因 char 死亡而重生。
 6. 破局判定：当达成破局条件时 loopEndMet=true。
@@ -429,7 +443,36 @@ ${(usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "
 
 【输出格式（严格按以下结构，不要省略任何标记）】
 【思考】
-（分析当前局势、user 行动的可能后果、是否触发 user 死亡条件、是否达成破局条件。这是你的内部思考，user 看不到。）
+请按以下结构进行思考（这是你的内部思考，user 看不到）：
+
+1. 局势分析：
+   - user 本回合的行动是什么？
+   - 当前 user 所在地点、时间、在场人物？
+   - 剧本种子中本回合会发生什么事件？
+
+2. 行动后果推演：
+   - user 的行动会直接导致什么结果？
+   - NPC 会如何反应？（需符合其人设）
+   - 是否会触发剧本种子中的事件？
+
+3. 死亡判定：
+   - user 的行动是否必然导致 user 本人死亡？
+   - 如果是，死因是什么？
+   - 如果不是，died=false
+   - 注意：char/NPC 死亡不影响 died 字段
+
+4. 破局判定：
+   - 是否达成破局条件？
+   - 如果是，具体达成的是什么？
+
+5. 即兴线索：
+   - user 行动是否会触发即兴线索（如 char 透露秘密）？
+   - 如果是，这些线索是否是稳定的（下回合依然成立）？
+
+6. 正文构思：
+   - 将如何描述这个场景？
+   - 重点描写什么？
+   - **确保不替 user 行动或说话**
 
 【正文】
 （剧情正文，人称：${personDesc}。文风遵循设定。绝对不要替 user 做出任何行动、决定、说话。只描述世界、NPC、环境对 user 行动的反应。）
@@ -446,6 +489,9 @@ ${(usedClues || []).map(c => "- " + (c.summary || c.text || "")).join("\n") || "
 【判定字段说明】
 - death.died：只判断 user 本人是否死亡。char/NPC 死亡时此字段必须为 false。
 - loopEndMet：是否达成破局条件。
+
+【开场序幕（仅第一回合）】
+${injects.openingScene || "（非第一回合，无）"}
 
 【基础世界设定】
 ${injects.baseWorldSetting || "（无）"}
@@ -609,10 +655,18 @@ ${worldview || "（无）"}
       const personDesc = person === "第二人称"
         ? "第二人称（用「你」来指代 user）"
         : "第三人称（类似小说叙事，可以用 user 的名字，也可以用「她/他/他们/它」等代词）";
+      const personRule = person === "第二人称"
+        ? "本游戏使用第二人称：正文中必须用「你」来指代 user。绝对不要用 user 的名字或第三人称代词。"
+        : "本游戏使用第三人称：正文中用 user 的名字或「她/他/他们/它」代词，**绝对不要用「你」来指代 user**。";
       return [
         {
           role: "system",
           content: `你是时间循环文游的「开场序幕生成器」。基于基础世界设定与基础剧本种子，生成游戏第一回合 user 看到的开场剧情。
+
+【人称要求（最高优先级，必须遵守）】
+${personRule}
+- 这是硬性要求，违反将导致游戏体验崩坏
+- 在开场正文中严格遵守此人称
 
 【严格规则】
 1. 只输出开场正文，不要任何标记（不要写【开场序幕】、【正文】等标题），不要输出选项，不要输出判定 JSON。
@@ -621,7 +675,13 @@ ${worldview || "（无）"}
 4. 文风严格遵循下方「文风」设定。
 5. 注入 char 完整人设，char 的言行需符合其设定。
 6. 注入 user 人设，user 的初始状态需符合其人设。
-7. 【绝对禁止】替 user 行动、说话、做决定。你只能描述世界、NPC、环境。user 的行动只能由 user 自己输入。违反此规则会彻底破坏游戏。
+7. 【绝对禁止】替 user 行动、说话、做决定、思考。
+   - 错误示例："你走向桌子，拿起信件，读完后陷入沉思。" ← 这是替 user 行动和思考
+   - 正确示例："桌上放着一封未拆的信件。" ← 只描述环境
+   - 错误示例："你决定先去厨房看看。" ← 这是替 user 决定
+   - 正确示例："厨房传来细微的响动。" ← 只描述环境变化
+   - 你只能描述：世界状态、NPC 言行、环境变化、user 行动的直接后果
+   - user 的下一步行动只能由 user 自己输入
 8. 结尾留白，让 user 想输入第一个行动。不要替 user 总结或暗示下一步具体做什么。
 9. 篇幅 500-1000 字。
 
@@ -1088,6 +1148,67 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
   .${ROOT_CLASS}[data-theme="dark"] .tlg-fab-menu button:hover {
     background: rgba(255,255,255,0.1);
   }
+
+  /* === 历史记录区（累积显示开场 / user 输入 / model 正文） === */
+  .${ROOT_CLASS} .tlg-story-area {
+    max-height: 55vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 2px 12px 2px;
+    margin-bottom: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .${ROOT_CLASS} .tlg-history-user {
+    margin: 10px 0;
+    padding: 10px 14px;
+    background: rgba(90,144,192,0.12);
+    border-left: 3px solid #5a90c0;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .${ROOT_CLASS} .tlg-history-user .tlg-history-label {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .${ROOT_CLASS} .tlg-history-user .tlg-history-text {
+    line-height: 1.6;
+    font-size: 14px;
+  }
+  .${ROOT_CLASS} .tlg-history-model {
+    margin: 10px 0;
+    padding: 6px 0;
+  }
+  .${ROOT_CLASS} .tlg-history-opening {
+    margin: 10px 0;
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border-left: 3px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+  }
+  .${ROOT_CLASS} .tlg-history-opening .tlg-history-label {
+    font-size: 11px;
+    opacity: 0.6;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .${ROOT_CLASS} .tlg-history-streaming {
+    opacity: 0.6;
+    font-style: italic;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 8px 0;
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-history-user {
+    background: rgba(90,144,192,0.1);
+    border-left: 3px solid #5a90c0;
+  }
+  .${ROOT_CLASS}[data-theme="light"] .tlg-history-opening {
+    background: rgba(0,0,0,0.04);
+    border-left: 3px solid rgba(0,0,0,0.2);
+  }
   `;
 
   // ============================================================
@@ -1201,6 +1322,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         standingOrders: Array.isArray(standingOrders) ? standingOrders : [], // 常驻指令（字符串数组）
         pendingMainOutput: "", // 当前回合已生成但尚未被副2-总结的主API输出
         lastInjects: null, // 上一次主 API 的 injects 快照（供 rerollMain 使用）
+        history: [], // 历史记录区，每项 { type: "user"|"model"|"opening", text, thinking?, turnNumber }
         createdAt: Date.now(),
       };
       // 初始化人物表（charList 里的所有 char 默认在场）
@@ -1311,6 +1433,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       }
       // 前两回合清空
       state.prevTurns = [];
+      // 历史记录清空：保留开场（循环回到起点）
+      state.history = state.openingScene
+        ? [{ type: "opening", text: state.openingScene, turnNumber: 0 }]
+        : [];
       await this.saveState(state);
     },
 
@@ -1464,6 +1590,7 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         modeRules: state.loopEndCondition ? "破局条件：" + state.loopEndCondition : "（隐藏条件）",
         userAction: userInput,
         usedClues,
+        openingScene: isFirstTurn ? (state.openingScene || "") : "",
       };
       state.lastInjects = injects;
 
@@ -2000,12 +2127,17 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
             }
           }
 
-          // 7. 写入 openingScene 并保存；失败时 storyArea 显示提示，不阻塞游戏
+          // 7. 写入 openingScene，初始化 history，保存并重新渲染（从 history 渲染 storyArea）
           App.state.openingScene = openingScene;
-          if (story) {
-            story.textContent = openingScene || "开场生成失败，请直接输入行动";
-          }
+          App.state.history = openingScene
+            ? [{ type: "opening", text: openingScene, turnNumber: 0 }]
+            : [];
           await Engine.saveCurrent(App.state);
+          UI.render();
+          if (!openingScene) {
+            const s = document.getElementById("tlg-story");
+            if (s) s.appendChild(el("div", { class: "tlg-faded" }, "开场生成失败，请直接输入行动"));
+          }
           window.Roche.ui.toast("存档创建成功");
         } catch (e) {
           window.Roche.ui.toast("创建失败：" + (e.message || "未知错误"));
@@ -2025,16 +2157,53 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         return wrap;
       }
 
-      // 判断是否为第一回合（开场序幕阶段）
-      const isFirstTurn = state.turnNumber === 1 && state.prevTurns.length === 0;
-
-      // 剧情显示区
-      const storyArea = el("div", { class: "tlg-prose tlg-mb-16", id: "tlg-story" });
-      if (isFirstTurn && state.openingScene) {
-        storyArea.textContent = state.openingScene;
-      } else {
-        storyArea.textContent = "输入你的行动开始剧情...";
+      // 初始化 history（兼容旧存档：若不存在或为空但开场已存在，则补一条 opening）
+      if (!Array.isArray(state.history)) state.history = [];
+      if (state.history.length === 0 && state.openingScene) {
+        state.history.push({ type: "opening", text: state.openingScene, turnNumber: 0 });
       }
+
+      // 历史记录区（累积显示开场 / user 输入 / model 正文）
+      const storyArea = el("div", { class: "tlg-story-area", id: "tlg-story" });
+
+      // 渲染单个历史条目为 DOM 节点
+      const renderHistoryEntry = (entry) => {
+        if (!entry) return null;
+        if (entry.type === "user") {
+          return el("div", { class: "tlg-history-user" },
+            el("div", { class: "tlg-history-label" }, "user"),
+            el("div", { class: "tlg-history-text" }, entry.text || "")
+          );
+        } else if (entry.type === "model") {
+          const node = el("div", { class: "tlg-history-model" });
+          if (entry.thinking) {
+            const toggle = el("div", { class: "tlg-thinking-toggle" }, "[显示思考]");
+            let expanded = false;
+            const thinkingBody = el("div", { class: "tlg-thinking-body", style: "display:none;" }, entry.thinking);
+            toggle.addEventListener("click", () => {
+              expanded = !expanded;
+              toggle.textContent = expanded ? "[隐藏思考]" : "[显示思考]";
+              thinkingBody.style.display = expanded ? "block" : "none";
+            });
+            node.appendChild(toggle);
+            node.appendChild(thinkingBody);
+          }
+          node.appendChild(el("div", { class: "tlg-prose" }, entry.text || ""));
+          return node;
+        } else if (entry.type === "opening") {
+          return el("div", { class: "tlg-history-opening" },
+            el("div", { class: "tlg-history-label" }, "开场"),
+            el("div", { class: "tlg-prose" }, entry.text || "")
+          );
+        }
+        return null;
+      };
+
+      // 初始渲染整个 history
+      state.history.forEach(entry => {
+        const node = renderHistoryEntry(entry);
+        if (node) storyArea.appendChild(node);
+      });
       wrap.appendChild(storyArea);
 
       // 选项区
@@ -2071,26 +2240,14 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
       // 记录当前回合的输入与线索（供 reroll 使用）
       let lastTurnInput = null;
 
-      // 渲染主 API 输出（正文 + 选项 + 思维链折叠）
-      const renderOutput = (modelOutput) => {
-        const body = this.parseBody(modelOutput);
-        const thinking = this.parseThinking(modelOutput);
-        const options = this.parseOptions(modelOutput);
-        storyArea.innerHTML = "";
-        // 思维链默认折叠
-        if (thinking) {
-          const toggle = el("div", { class: "tlg-thinking-toggle" }, "[显示思考]");
-          let expanded = false;
-          const thinkingBody = el("div", { class: "tlg-thinking-body", style: "display:none;" }, thinking);
-          toggle.addEventListener("click", () => {
-            expanded = !expanded;
-            toggle.textContent = expanded ? "[隐藏思考]" : "[显示思考]";
-            thinkingBody.style.display = expanded ? "block" : "none";
-          });
-          storyArea.appendChild(toggle);
-          storyArea.appendChild(thinkingBody);
-        }
-        storyArea.appendChild(document.createTextNode(body));
+      // 滚动到底部
+      const scrollBottom = () => {
+        storyArea.scrollTop = storyArea.scrollHeight;
+      };
+      scrollBottom();
+
+      // 渲染选项按钮
+      const renderOptions = (options) => {
         optionsArea.replaceChildren();
         if (options && options.length) {
           options.forEach(opt => {
@@ -2111,16 +2268,80 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         }
       };
 
+      // 追加 model 条目到 storyArea 和 history
+      const appendModelEntry = (modelOutput, turnNumber) => {
+        const body = this.parseBody(modelOutput);
+        const thinking = this.parseThinking(modelOutput);
+        const options = this.parseOptions(modelOutput);
+        const entry = { type: "model", text: body, thinking, turnNumber };
+        state.history.push(entry);
+        const node = renderHistoryEntry(entry);
+        if (node) storyArea.appendChild(node);
+        renderOptions(options);
+        scrollBottom();
+        return entry;
+      };
+
+      // 替换最后一条 model 条目（用于 reroll）
+      const replaceLastModelEntry = (modelOutput, turnNumber) => {
+        const body = this.parseBody(modelOutput);
+        const thinking = this.parseThinking(modelOutput);
+        const options = this.parseOptions(modelOutput);
+        const newEntry = { type: "model", text: body, thinking, turnNumber };
+        // 替换 state.history 最后一条 model；若找不到（如已被 rewindLoop 清空）则 push 新条目
+        let replaced = false;
+        for (let i = state.history.length - 1; i >= 0; i--) {
+          if (state.history[i].type === "model") {
+            state.history[i] = newEntry;
+            replaced = true;
+            break;
+          }
+        }
+        if (!replaced) {
+          state.history.push(newEntry);
+        }
+        // 替换 DOM 中最后一个 .tlg-history-model 元素；若找不到则 appendChild
+        const modelNodes = storyArea.querySelectorAll(".tlg-history-model");
+        const newNode = renderHistoryEntry(newEntry);
+        if (modelNodes.length > 0) {
+          const lastNode = modelNodes[modelNodes.length - 1];
+          if (newNode) lastNode.replaceWith(newNode);
+        } else {
+          if (newNode) storyArea.appendChild(newNode);
+        }
+        renderOptions(options);
+        scrollBottom();
+      };
+
+      // 追加结局条目（破局后）
+      const appendEndingEntry = (ending, turnNumber) => {
+        const entry = { type: "model", text: ending, thinking: "", turnNumber };
+        state.history.push(entry);
+        storyArea.appendChild(renderHistoryEntry(entry));
+        scrollBottom();
+      };
+
       sendBtn.addEventListener("click", async () => {
         const input = document.getElementById("tlg-action-input");
         const action = input.value.trim();
         if (!action) return;
         sendBtn.disabled = true;
         sendBtn.textContent = "推进中...";
-        storyArea.textContent = "正在推进剧情...";
         optionsArea.replaceChildren();
         rerollBtn.style.display = "none";
         lastTurnInput = null;
+
+        // 先追加 user 输入到 storyArea 和 history
+        const userEntry = { type: "user", text: action, turnNumber: state.turnNumber };
+        state.history.push(userEntry);
+        storyArea.appendChild(renderHistoryEntry(userEntry));
+        scrollBottom();
+        input.value = "";
+
+        // 流式占位条目
+        const streamEntry = el("div", { class: "tlg-history-model tlg-history-streaming" }, "正在生成...");
+        storyArea.appendChild(streamEntry);
+        scrollBottom();
 
         // 从 showCluePicker 同步已选线索
         if (window.__tlgUsedClues && window.__tlgUsedClues.length) {
@@ -2131,14 +2352,18 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         const capturedAction = action;
         const capturedClues = usedClues.slice();
 
-        // 流式回调：实时显示完整原始输出（含【思考】等标记），完成后由 renderOutput 分离
+        // 流式回调：实时更新占位条目
         const onMainChunk = (chunk, fullText) => {
-          storyArea.textContent = fullText;
+          streamEntry.textContent = fullText;
+          scrollBottom();
         };
 
         try {
           const result = await Engine.runTurn(state, action, capturedClues, App.roche, onMainChunk);
-          renderOutput(result.modelOutput);
+          // 移除流式占位
+          streamEntry.remove();
+          // 追加解析后的 model 条目
+          appendModelEntry(result.modelOutput, state.turnNumber);
           usedClues.length = 0;
           window.__tlgUsedClues = [];
           this.renderUsedClues(usedCluesArea, usedClues);
@@ -2149,15 +2374,19 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
             rerollBtn.style.display = "none";
             lastTurnInput = null;
             App.state = state;
-            // 死亡剧情已在 storyArea 显示，追加"回溯到循环开始"按钮，点击后刷新界面
             storyArea.appendChild(el("div", { class: "tlg-divider" }));
             storyArea.appendChild(el("button", {
               class: "tlg-btn tlg-mt-16",
               onclick: () => {
+                // 回溯：清空 history（保留开场），开始新循环
+                state.history = state.openingScene
+                  ? [{ type: "opening", text: state.openingScene, turnNumber: 0 }]
+                  : [];
                 App.state = state;
                 UI.render();
               }
             }, "回溯到循环开始"));
+            scrollBottom();
             return;
           }
           // 破局：runTurn 内部已处理总结，这里只生成结局
@@ -2166,11 +2395,13 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
             lastTurnInput = null;
             storyArea.appendChild(el("div", { class: "tlg-divider" }));
             storyArea.appendChild(el("div", { class: "tlg-faded" }, "破局成功，生成结局中..."));
+            scrollBottom();
             try {
               const ending = await Engine.runEnding(state, App.roche);
-              storyArea.appendChild(el("div", { class: "tlg-prose tlg-mt-16" }, ending));
+              appendEndingEntry(ending, state.turnNumber);
             } catch (e2) {
               storyArea.appendChild(el("div", { class: "tlg-faded" }, "结局生成失败：" + (e2.message || "")));
+              scrollBottom();
             }
             App.state = state;
             return;
@@ -2180,8 +2411,19 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           rerollBtn.style.display = "";
           App.state = state;
         } catch (e) {
+          // 移除流式占位
+          streamEntry.remove();
           window.Roche.ui.toast("出错：" + (e.message || "未知错误"));
-          storyArea.textContent = "出错，请重试。";
+          // runTurn 失败：移除最后一条 user 输入（保持数据一致性）
+          if (state.history.length > 0 && state.history[state.history.length - 1].type === "user") {
+            state.history.pop();
+            const userNodes = storyArea.querySelectorAll(".tlg-history-user");
+            if (userNodes.length > 0) {
+              userNodes[userNodes.length - 1].remove();
+            }
+          }
+          storyArea.appendChild(el("div", { class: "tlg-faded" }, "出错，请重试。"));
+          scrollBottom();
         } finally {
           sendBtn.disabled = false;
           sendBtn.textContent = "行动";
@@ -2194,29 +2436,42 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
         rerollBtn.disabled = true;
         const prevText = rerollBtn.innerHTML;
         rerollBtn.innerHTML = "重新生成中...";
-        storyArea.textContent = "正在重新生成...";
         optionsArea.replaceChildren();
+
+        // 流式占位条目
+        const streamEntry = el("div", { class: "tlg-history-model tlg-history-streaming" }, "正在重新生成...");
+        storyArea.appendChild(streamEntry);
+        scrollBottom();
+
         const onMainChunk = (chunk, fullText) => {
-          storyArea.textContent = fullText;
+          streamEntry.textContent = fullText;
+          scrollBottom();
         };
         try {
           const result = await Engine.rerollMain(state, lastTurnInput.action, lastTurnInput.usedClues, App.roche, onMainChunk);
-          renderOutput(result.modelOutput);
+          // 移除流式占位
+          streamEntry.remove();
+          // 替换最后一条 model 条目
+          replaceLastModelEntry(result.modelOutput, state.turnNumber);
 
           if (result.died) {
             window.Roche.ui.toast("user 死亡，触发回溯");
             rerollBtn.style.display = "none";
             lastTurnInput = null;
             App.state = state;
-            // 死亡剧情已在 storyArea 显示，追加"回溯到循环开始"按钮，点击后刷新界面
             storyArea.appendChild(el("div", { class: "tlg-divider" }));
             storyArea.appendChild(el("button", {
               class: "tlg-btn tlg-mt-16",
               onclick: () => {
+                // 回溯：清空 history（保留开场），开始新循环
+                state.history = state.openingScene
+                  ? [{ type: "opening", text: state.openingScene, turnNumber: 0 }]
+                  : [];
                 App.state = state;
                 UI.render();
               }
             }, "回溯到循环开始"));
+            scrollBottom();
             return;
           }
           if (result.broke) {
@@ -2224,11 +2479,13 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
             lastTurnInput = null;
             storyArea.appendChild(el("div", { class: "tlg-divider" }));
             storyArea.appendChild(el("div", { class: "tlg-faded" }, "破局成功，生成结局中..."));
+            scrollBottom();
             try {
               const ending = await Engine.runEnding(state, App.roche);
-              storyArea.appendChild(el("div", { class: "tlg-prose tlg-mt-16" }, ending));
+              appendEndingEntry(ending, state.turnNumber);
             } catch (e2) {
               storyArea.appendChild(el("div", { class: "tlg-faded" }, "结局生成失败：" + (e2.message || "")));
+              scrollBottom();
             }
             App.state = state;
             return;
@@ -2236,8 +2493,10 @@ ${(charList || []).map(c => "### " + (c.handle || c.name) + "\n" + (c.persona ||
           // 正常：保留 lastTurnInput（仍可再次重 roll），rerollBtn 保持显示
           App.state = state;
         } catch (e) {
+          streamEntry.remove();
           window.Roche.ui.toast("出错：" + (e.message || "未知错误"));
-          storyArea.textContent = "出错，请重试。";
+          storyArea.appendChild(el("div", { class: "tlg-faded" }, "出错，请重试。"));
+          scrollBottom();
         } finally {
           rerollBtn.disabled = false;
           rerollBtn.innerHTML = prevText;
